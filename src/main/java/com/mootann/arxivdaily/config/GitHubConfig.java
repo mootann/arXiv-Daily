@@ -24,7 +24,7 @@ public class GitHubConfig {
     private String repository;
     
     /**
-     * GitHub访问令牌（可选，用于提高API速率限制）
+     * GitHub访问令牌
      */
     private String accessToken;
     

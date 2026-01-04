@@ -1,6 +1,7 @@
 package com.mootann.arxivdaily.task;
 
 import com.mootann.arxivdaily.client.ArxivClient;
+import com.mootann.arxivdaily.client.RedisClient;
 import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
 import com.mootann.arxivdaily.dto.arxiv.ArxivSearchResponse;
 import com.mootann.arxivdaily.service.ArxivService;
@@ -21,6 +22,9 @@ import java.util.List;
 @Slf4j
 @Component
 public class DailyArxivSyncTask {
+
+    @Autowired
+    private RedisClient redisClient;
 
     @Autowired
     private ArxivClient arxivClient;
@@ -48,11 +52,11 @@ public class DailyArxivSyncTask {
             
             log.info("准备获取 {} 发布的所有arxiv论文", todayStr);
             
-            // 获取当天发布的所有论文（不设置数量限制）
+            // 获取当天发布的所有论文
             List<ArxivPaperDTO> allPapers = fetchAllPapersForDate(todayStr);
             
             if (allPapers.isEmpty()) {
-                log.warn("未获取到任何论文，可能今天还没有新论文发布");
+                log.warn("未获取到今天新发布论文");
             } else {
                 log.info("成功获取 {} 篇论文，准备保存到数据库", allPapers.size());
                 
@@ -61,6 +65,9 @@ public class DailyArxivSyncTask {
                 
                 log.info("本次同步完成: 获取 {} 篇论文，保存 {} 篇新论文到数据库", 
                     allPapers.size(), savedCount);
+
+                redisClient.deleteByPattern(RedisClient.PAPERS_PREFIX + "*");
+                log.info("已清除论文列表缓存");
             }
             
         } catch (Exception e) {
@@ -71,7 +78,7 @@ public class DailyArxivSyncTask {
     }
 
     /**
-     * 获取指定日期发布的所有论文（不限制数量）
+     * 获取指定日期发布的所有论文
      * 通过多次分页请求获取所有论文
      * 
      * @param date 日期，格式：YYYY-MM-DD

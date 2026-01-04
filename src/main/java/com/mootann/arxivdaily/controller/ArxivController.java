@@ -11,9 +11,11 @@ import com.mootann.arxivdaily.task.DailyArxivSyncTask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.time.LocalDate;
@@ -32,7 +34,7 @@ public class ArxivController {
     private ArxivService arxivService;
 
     @Autowired
-    private RestTemplate restTemplate;
+    private WebClient webClient;
 
     @Autowired
     private DailyArxivSyncTask dailyArxivSyncTask;
@@ -534,13 +536,12 @@ public class ArxivController {
         log.info("收到获取PDF请求: {}", arxivId);
         try {
             String pdfUrl = "https://arxiv.org/pdf/" + arxivId + ".pdf";
-            // 添加User-Agent模拟浏览器，避免被arXiv拦截
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
-            
-            ResponseEntity<byte[]> response = restTemplate.exchange(pdfUrl, org.springframework.http.HttpMethod.GET, entity, byte[].class);
-            byte[] pdfData = response.getBody();
+            byte[] pdfData = webClient.get()
+                    .uri(pdfUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                    .retrieve()
+                    .bodyToMono(byte[].class)
+                    .block();
             
             if (pdfData != null) {
                 return ResponseEntity.ok()

@@ -61,7 +61,7 @@ public class ArxivClient {
     @Autowired
     private ArxivEntryMapper arxivEntryMapper;
     
-    public ArxivClient(@Autowired ArxivProxyConfig proxyConfig, @Autowired ObjectMapper objectMapper) {
+    public ArxivClient(ArxivProxyConfig proxyConfig, ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.proxyConfig = proxyConfig;
         log.info("arXiv代理配置: enabled={}, host={}, port={}", 
