@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers("/api/v1/arxiv/**").permitAll()
                         .requestMatchers("/api/v1/github/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/organizations/create", "/api/v1/organizations/**").authenticated()
                         .anyRequest().authenticated()
                 )

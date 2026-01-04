@@ -14,6 +14,8 @@ export default defineConfig({
     include: ['katex', 'katex/dist/contrib/auto-render']
   },
   server: {
+    port: 5100,
+    host: '127.0.0.1',
     proxy: {
       '/api': {
         target: 'http://localhost:18081',

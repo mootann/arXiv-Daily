@@ -77,6 +77,9 @@ spring:
       concurrency: 1                               # 消费者并发数
 
 logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
   level:
     org.hibernate.orm.connections.pooling: WARN   #Hibernate 6日志记录BUG 关闭Info提示
     org.springframework.boot.autoconfigure: ERROR  #关闭自动配置报告日志

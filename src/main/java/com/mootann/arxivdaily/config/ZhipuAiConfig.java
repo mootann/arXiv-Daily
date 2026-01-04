@@ -1,9 +1,11 @@
 package com.mootann.arxivdaily.config;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.zhipu.ZhipuAiChatModel;
 import dev.langchain4j.model.zhipu.ZhipuAiEmbeddingModel;
+import dev.langchain4j.model.zhipu.ZhipuAiStreamingChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +36,20 @@ public class ZhipuAiConfig {
                 .connectTimeout(Duration.ofSeconds(10))   // 连接超时时间
                 .readTimeout(Duration.ofSeconds(60))      // 读取超时时间
                 .writeTimeout(Duration.ofSeconds(60))     // 写入超时时间
+                .build();
+    }
+
+    @Bean
+    public StreamingChatLanguageModel zhipuAiStreamingChatModel() {
+        return ZhipuAiStreamingChatModel.builder()
+                .apiKey(apiKey)
+                .model(modelName)
+                .logRequests(true)
+                .logResponses(true)
+                .callTimeout(Duration.ofSeconds(60))
+                .connectTimeout(Duration.ofSeconds(10))
+                .readTimeout(Duration.ofSeconds(60))
+                .writeTimeout(Duration.ofSeconds(60))
                 .build();
     }
 
