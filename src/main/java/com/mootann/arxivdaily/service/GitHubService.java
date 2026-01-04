@@ -33,7 +33,7 @@ public class GitHubService {
         // 先从Redis缓存获取
         Object cachedValue = redisClient.get(cacheKey);
         if (cachedValue instanceof GitHubRepositoryInfo) {
-            log.info("从Redis缓存获取GitHub仓库信息");
+            log.info("从Redis缓存获取GitHub仓库信息 stars:{}, forks:{}", ((GitHubRepositoryInfo) cachedValue).getStarsCount(), ((GitHubRepositoryInfo) cachedValue).getForksCount());
             return (GitHubRepositoryInfo) cachedValue;
         }
 
@@ -48,59 +48,5 @@ public class GitHubService {
         }
 
         return info;
-    }
-    
-    /**
-     * 获取Stars数量（带缓存）
-     * @return Stars数量
-     */
-    public Integer getStarsCount() {
-        String cacheKey = RedisClient.GITHUB_STARS;
-
-        // 先从Redis缓存获取
-        Object cachedValue = redisClient.get(cacheKey);
-        if (cachedValue instanceof Integer) {
-            log.info("从Redis缓存获取GitHub仓库Stars数量");
-            return (Integer) cachedValue;
-        }
-
-        // 缓存未命中，调用GitHubClient获取
-        log.info("获取GitHub仓库Stars数量");
-        Integer stars = gitHubClient.getStarsCount();
-
-        if (stars != null) {
-            // 保存到Redis缓存，过期时间1天
-            redisClient.set(cacheKey, stars, RedisClient.ONE_DAY_HOURS, TimeUnit.HOURS);
-            log.info("GitHub仓库Stars数量已缓存到Redis");
-        }
-
-        return stars;
-    }
-    
-    /**
-     * 获取Fork数量（带缓存）
-     * @return Fork数量
-     */
-    public Integer getForksCount() {
-        String cacheKey = RedisClient.GITHUB_FORKS;
-
-        // 先从Redis缓存获取
-        Object cachedValue = redisClient.get(cacheKey);
-        if (cachedValue instanceof Integer) {
-            log.info("从Redis缓存获取GitHub仓库Fork数量");
-            return (Integer) cachedValue;
-        }
-
-        // 缓存未命中，调用GitHubClient获取
-        log.info("获取GitHub仓库Fork数量");
-        Integer forks = gitHubClient.getForksCount();
-
-        if (forks != null) {
-            // 保存到Redis缓存，过期时间1天
-            redisClient.set(cacheKey, forks, RedisClient.ONE_DAY_HOURS, TimeUnit.HOURS);
-            log.info("GitHub仓库Fork数量已缓存到Redis");
-        }
-
-        return forks;
     }
 }

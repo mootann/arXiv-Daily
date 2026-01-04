@@ -13,22 +13,16 @@ import jakarta.xml.bind.Unmarshaller;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.neo4j.Neo4jProperties.Security.TrustStrategy;
 import org.springframework.stereotype.Component;
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.hc.core5.ssl.SSLContexts;
-import org.apache.hc.core5.ssl.TrustStrategy;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.net.ssl.SSLContext;
 
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -55,14 +49,15 @@ public class ArxivClient {
     private static final int API_MAX_RESULTS_PER_REQUEST = 100;
     // 上次请求的时间
     private static long lastRequestTime = 0;
-    private final ObjectMapper objectMapper;
+
+    private final WebClient webClient;
     private final ArxivProxyConfig proxyConfig;
     
     @Autowired
     private ArxivEntryMapper arxivEntryMapper;
     
-    public ArxivClient(ArxivProxyConfig proxyConfig, ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public ArxivClient(WebClient webClient, ArxivProxyConfig proxyConfig) {
+        this.webClient = webClient;
         this.proxyConfig = proxyConfig;
         log.info("arXiv代理配置: enabled={}, host={}, port={}", 
             proxyConfig.getEnabled(), proxyConfig.getHost(), proxyConfig.getPort());
@@ -73,7 +68,7 @@ public class ArxivClient {
      * @param arxivId arXiv ID，例如：2301.12345
      * @return 论文信息
      */
-    public ArxivPaperDTO getPaperById(String arxivId) {
+    public ArxivPaperDTO getPaperById(String arxivId) throws UnsupportedEncodingException {
         String query = "id:" + arxivId;
         ArxivSearchRequest request = new ArxivSearchRequest(query, 1, "0", null, null, null, null);
         ArxivSearchResponse response = searchPapers(request);
@@ -89,7 +84,7 @@ public class ArxivClient {
      * @param arxivIds arXiv ID列表
      * @return 论文信息列表
      */
-    public List<ArxivPaperDTO> getPapersByIds(List<String> arxivIds) {
+    public List<ArxivPaperDTO> getPapersByIds(List<String> arxivIds) throws UnsupportedEncodingException {
         String query = String.join(" OR ", arxivIds.stream()
                 .map(id -> "id:" + id)
                 .toList());
@@ -104,7 +99,7 @@ public class ArxivClient {
      * @param request 搜索请求参数
      * @return 搜索响应结果
      */
-    public ArxivSearchResponse searchPapers(ArxivSearchRequest request) {
+    public ArxivSearchResponse searchPapers(ArxivSearchRequest request) throws UnsupportedEncodingException {
         log.info("===== 开始搜索arXiv论文 =====");
         log.info("搜索请求参数: query={}, maxResults={}, start={}, sortBy={}, sortOrder={}", 
             request.getQuery(), request.getMaxResults(), request.getStart(), 
@@ -117,82 +112,41 @@ public class ArxivClient {
         // 执行请求前确保遵守频率限制
         ensureRequestInterval();
         
+        // 构建API请求URL
+        StringBuilder urlBuilder = new StringBuilder(ARXIV_API_BASE_URL);
+        urlBuilder.append("?search_query=").append(URLEncoder.encode(filteredQuery, StandardCharsets.UTF_8));
+        
+        if (request.getMaxResults() != null && request.getMaxResults() > 0) {
+            urlBuilder.append("&max_results=").append(request.getMaxResults());
+        } else {
+            urlBuilder.append("&max_results=10");
+        }
+        
+        if (request.getStart() != null) {
+            urlBuilder.append("&start=").append(request.getStart());
+        }
+        
+        String requestUrl = urlBuilder.toString();
+        log.info("构建的请求URL: {}", requestUrl);
+        
+        // 使用WebClient执行请求
         try {
-            // 构建API请求URL
-            StringBuilder urlBuilder = new StringBuilder(ARXIV_API_BASE_URL);
-            urlBuilder.append("?search_query=").append(java.net.URLEncoder.encode(filteredQuery, "UTF-8"));
+            String responseString = webClient.get()
+                .uri(requestUrl)
+                .header("User-Agent", "ArXiv-Daily/1.0")
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
             
-            if (request.getMaxResults() != null && request.getMaxResults() > 0) {
-                urlBuilder.append("&max_results=").append(request.getMaxResults());
+            if (responseString != null && responseString.length() > 0) {
+                log.info("响应内容长度: {} 字符", responseString.length());
+                return parseResponse(responseString);
             } else {
-                urlBuilder.append("&max_results=10");
-            }
-            
-            if (request.getStart() != null) {
-                urlBuilder.append("&start=").append(request.getStart());
-            }
-
-            String requestUrl = urlBuilder.toString();
-            log.info("构建的请求URL: {}", requestUrl);
-            log.info("代理配置: enabled={}, host={}, port={}", 
-                proxyConfig.getEnabled(), proxyConfig.getHost(), proxyConfig.getPort());
-            
-            // 执行HTTP请求
-            try (CloseableHttpClient httpClient = createHttpClient()) {
-                HttpGet httpGet = new HttpGet(requestUrl);
-                httpGet.setHeader("User-Agent", "ArXiv-Daily/1.0");
-                
-                log.info("发送HTTP请求...");
-                try (CloseableHttpResponse httpResponse = httpClient.execute(httpGet)) {
-                    int statusCode = httpResponse.getCode();
-                    log.info("HTTP响应状态码: {}", statusCode);
-                    
-                    String responseString = EntityUtils.toString(httpResponse.getEntity());
-                    log.info("响应内容长度: {} 字符", responseString.length());
-                    
-                    // 打印响应内容
-                    if (responseString.length() > 0) {
-                        // 如果状态码为 500，打印完整响应内容
-                        if (statusCode >= 400) {
-                            log.error("API返回错误状态码，完整响应内容:\n{}", responseString);
-                        } else {
-                            String preview = responseString.length() > 500 
-                                ? responseString.substring(0, 500) + "..." 
-                                : responseString;
-                            log.info("响应内容预览:\n{}", preview);
-                        }
-                    } else {
-                        log.warn("响应内容为空！");
-                    }
-                    
-                    ArxivSearchResponse result = parseResponse(responseString);
-                    
-                    if (result != null) {
-                        log.info("解析成功 - 总结果数: {}, 本次返回数: {}", 
-                            result.getTotalResults(), result.getPapers().size());
-                        
-                        if (result.getPapers().isEmpty()) {
-                            log.warn("警告: 搜索结果为0，可能原因:");
-                            log.warn("  1. 查询条件过于严格或日期范围内无论文");
-                            log.warn("  2. arXiv API访问受限（代理配置问题）");
-                            log.warn("  3. 查询语法错误");
-                            log.warn("  4. 网络连接问题");
-                        }
-                    } else {
-                        log.error("解析响应失败！");
-                    }
-                    
-                    log.info("===== 搜索完成 =====");
-                    return result;
-                }
+                log.error("API返回空响应");
+                return null;
             }
         } catch (Exception e) {
             log.error("搜索arXiv论文失败", e);
-            log.error("错误类型: {}", e.getClass().getName());
-            log.error("错误消息: {}", e.getMessage());
-            if (e.getCause() != null) {
-                log.error("根本原因: {} - {}", e.getCause().getClass().getName(), e.getCause().getMessage());
-            }
             return null;
         }
     }
@@ -337,23 +291,18 @@ public class ArxivClient {
             String requestUrl = urlBuilder.toString();
             log.debug("请求URL: {}", requestUrl);
 
-            // 执行HTTP请求
-            try (CloseableHttpClient httpClient = createHttpClient()) {
-                HttpGet httpGet = new HttpGet(requestUrl);
-                httpGet.setHeader("User-Agent", "ArXiv-Daily/1.0");
+            // 使用WebClient执行请求
+            String responseString = webClient.get()
+                .uri(requestUrl)
+                .header("User-Agent", "ArXiv-Daily/1.0")
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
 
-                try (CloseableHttpResponse httpResponse = httpClient.execute(httpGet)) {
-                    int statusCode = httpResponse.getCode();
-                    
-                    String responseString = EntityUtils.toString(httpResponse.getEntity());
-                    
-                    if (statusCode >= 400) {
-                        log.error("HTTP错误响应: 状态码={}, 响应内容={}", statusCode, responseString);
-                        return null;
-                    }
-
-                    return parseResponse(responseString);
-                }
+            if (responseString != null) {
+                return parseResponse(responseString);
+            } else {
+                return null;
             }
         } catch (Exception e) {
             log.error("执行单次请求失败", e);
@@ -368,7 +317,7 @@ public class ArxivClient {
      * @param page 页码（从1开始）
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategory(String category, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByCategory(String category, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         String query = "cat:" + category;
         int startIndex = (page - 1) * maxResults;
         ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, String.valueOf(startIndex), null, null, null, null);
@@ -380,7 +329,7 @@ public class ArxivClient {
      * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategory(String category) {
+    public ArxivSearchResponse searchByCategory(String category) throws UnsupportedEncodingException {
         return searchByCategory(category, 10, 1);
     }
 
@@ -391,7 +340,7 @@ public class ArxivClient {
      * @param page 页码（从1开始）
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByKeyword(String keyword, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByKeyword(String keyword, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         String query = "all:" + keyword;
         int startIndex = (page - 1) * maxResults;
         ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, String.valueOf(startIndex), null, null, null, null);
@@ -407,7 +356,7 @@ public class ArxivClient {
      * @param page 页码（从1开始）
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         // 计算日期范围的天数
         Integer days = calculateDaysBetweenDates(startDate, endDate);
         // 计算允许的最大结果数
@@ -430,7 +379,7 @@ public class ArxivClient {
      * @param endDate 结束日期，格式：YYYY-MM-DD
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate) {
+    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate) throws UnsupportedEncodingException {
         return searchByCategoryAndDateRange(category, startDate, endDate, 10, 1);
     }
 
@@ -441,7 +390,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryFromDate(String category, String startDate, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryFromDate(String category, String startDate, Integer maxResults) throws UnsupportedEncodingException {
         // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
         String formattedStartDate = formatDateForArxiv(startDate);
         String query = String.format("cat:%s AND submittedDate:[%s TO *]", category, formattedStartDate);
@@ -456,7 +405,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryToDate(String category, String endDate, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryToDate(String category, String endDate, Integer maxResults) throws UnsupportedEncodingException {
         // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
         String formattedEndDate = formatDateForArxiv(endDate);
         String query = String.format("cat:%s AND submittedDate:[* TO %s]", category, formattedEndDate);
@@ -472,7 +421,7 @@ public class ArxivClient {
      * @param page 页码（从1开始）
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByDateRange(String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         // 计算日期范围的天数
         Integer days = calculateDaysBetweenDates(startDate, endDate);
         // 计算允许的最大结果数
@@ -494,7 +443,7 @@ public class ArxivClient {
      * @param endDate 结束日期，格式：YYYY-MM-DD
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate) {
+    public ArxivSearchResponse searchByDateRange(String startDate, String endDate) throws UnsupportedEncodingException {
         return searchByDateRange(startDate, endDate, 10, 1);
     }
 
@@ -504,7 +453,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDate(String date, Integer maxResults) {
+    public ArxivSearchResponse searchByDate(String date, Integer maxResults) throws UnsupportedEncodingException {
         // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
         String formattedDate = formatDateForArxiv(date);
         String query = "submittedDate:" + formattedDate;
@@ -518,7 +467,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchRecentPapers(int days, Integer maxResults) {
+    public ArxivSearchResponse searchRecentPapers(int days, Integer maxResults) throws UnsupportedEncodingException {
         // 计算允许的最大结果数
         Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
         log.info("获取最近 {} 天的论文，计算后的最大结果数: {}", days, calculatedMaxResults);
@@ -543,7 +492,7 @@ public class ArxivClient {
      * @param page 页码（从1开始）
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchRecentPapersByCategory(String category, int days, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchRecentPapersByCategory(String category, int days, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         // 计算允许的最大结果数
         Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
         log.info("获取最近 {} 天 {} 分类的论文，计算后的最大结果数: {}", days, category, calculatedMaxResults);
@@ -567,7 +516,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByMultipleCategories(List<String> categories, Integer maxResults) {
+    public ArxivSearchResponse searchByMultipleCategories(List<String> categories, Integer maxResults) throws UnsupportedEncodingException {
         String categoryQuery = String.join(" OR ", categories.stream()
                 .map(cat -> "cat:" + cat)
                 .toList());
@@ -583,7 +532,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByMultipleCategoriesAndDateRange(List<String> categories, String startDate, String endDate, Integer maxResults) {
+    public ArxivSearchResponse searchByMultipleCategoriesAndDateRange(List<String> categories, String startDate, String endDate, Integer maxResults) throws UnsupportedEncodingException {
         String categoryQuery = String.join(" OR ", categories.stream()
                 .map(cat -> "cat:" + cat)
                 .toList());
@@ -603,7 +552,7 @@ public class ArxivClient {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndKeyword(String category, String keyword, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryAndKeyword(String category, String keyword, Integer maxResults) throws UnsupportedEncodingException {
         String query = String.format("cat:%s AND all:%s", category, keyword);
         ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
         return searchPapers(request);
@@ -781,43 +730,6 @@ public class ArxivClient {
         }
         
         lastRequestTime = System.currentTimeMillis();
-    }
-    
-    /**
-     * 创建HttpClient，根据配置决定是否使用代理
-     */
-    private CloseableHttpClient createHttpClient() {
-        PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder = 
-            PoolingHttpClientConnectionManagerBuilder.create();
-        
-        HttpHost proxy = null;
-        
-        if (proxyConfig.getEnabled() && proxyConfig.getHost() != null && proxyConfig.getPort() != null) {
-            // 使用 HTTP 代理
-            proxy = new HttpHost(proxyConfig.getHost(), proxyConfig.getPort());
-            log.info("使用HTTP代理: {}://{}:{}", proxy.getSchemeName(), proxyConfig.getHost(), proxyConfig.getPort());
-        } else {
-            log.info("未启用代理，使用直连");
-        }
-        
-        // 配置信任所有SSL证书（解决HTTPS证书问题）
-        try {
-            SSLContext sslContext = SSLContexts.custom()
-                .loadTrustMaterial(null, (TrustStrategy) (chain, authType) -> true)
-                .build();
-            
-            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
-                sslContext, NoopHostnameVerifier.INSTANCE);
-            
-            connectionManagerBuilder.setSSLSocketFactory(sslSocketFactory);
-        } catch (Exception e) {
-            log.warn("配置SSL上下文失败，使用默认配置", e);
-        }
-        
-        return HttpClients.custom()
-            .setConnectionManager(connectionManagerBuilder.build())
-            .setProxy(proxy)
-            .build();
     }
 
     /**

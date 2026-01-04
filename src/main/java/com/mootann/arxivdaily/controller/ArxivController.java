@@ -7,16 +7,15 @@ import com.mootann.arxivdaily.dto.arxiv.ArxivSearchResponse;
 import com.mootann.arxivdaily.dto.ApiResponse;
 import com.mootann.arxivdaily.model.ArxivPaper;
 import com.mootann.arxivdaily.service.ArxivService;
-import com.mootann.arxivdaily.task.DailyArxivSyncTask;
+import com.mootann.arxivdaily.task.ArxivSyncTask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.time.LocalDate;
 
@@ -37,7 +36,7 @@ public class ArxivController {
     private WebClient webClient;
 
     @Autowired
-    private DailyArxivSyncTask dailyArxivSyncTask;
+    private ArxivSyncTask dailyArxivSyncTask;
     
     private Integer validateMaxResults(Integer maxResults) {
         if (maxResults == null || maxResults <= 0) {
@@ -51,7 +50,7 @@ public class ArxivController {
      * GET /api/arxiv/paper/{arxivId}
      */
     @GetMapping("/paper/{arxivId}")
-    public ResponseEntity<ApiResponse<ArxivPaperDTO>> getPaperById(@PathVariable String arxivId) {
+    public ResponseEntity<ApiResponse<ArxivPaperDTO>> getPaperById(@PathVariable String arxivId) throws UnsupportedEncodingException {
         log.info("收到获取论文请求: {}", arxivId);
         ArxivPaperDTO paper = arxivService.getPaperById(arxivId);
         if (paper != null) {
@@ -66,7 +65,7 @@ public class ArxivController {
      * POST /api/arxiv/papers/batch
      */
     @PostMapping("/papers/batch")
-    public ResponseEntity<ApiResponse<List<ArxivPaperDTO>>> getPapersByIds(@RequestBody List<String> arxivIds) {
+    public ResponseEntity<ApiResponse<List<ArxivPaperDTO>>> getPapersByIds(@RequestBody List<String> arxivIds) throws UnsupportedEncodingException {
         log.info("收到批量获取论文请求，数量: {}", arxivIds.size());
         List<ArxivPaperDTO> papers = arxivService.getPapersByIds(arxivIds);
         return ResponseEntity.ok(ApiResponse.success(papers));
@@ -168,7 +167,7 @@ public class ArxivController {
             @RequestParam(required = false) Integer maxResults,
             @RequestParam(defaultValue = "api") String source,
             @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(required = false) Boolean hasGithub) {
+            @RequestParam(required = false) Boolean hasGithub) throws UnsupportedEncodingException {
         log.info("收到按分类和日期范围搜索请求: {}, 日期范围: {} 到 {}, 最大结果数: {}, 来源: {}, 页码: {}, hasGithub: {}", category, startDate, endDate, maxResults, source, page, hasGithub);
         // 对于日期范围查询，不在controller层限制maxResults，由client层根据日期范围自动计算
         if ("db".equalsIgnoreCase(source)) {
@@ -189,7 +188,7 @@ public class ArxivController {
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchByCategoryFromDate(
             @PathVariable String category,
             @RequestParam String startDate,
-            @RequestParam(defaultValue = "10") Integer maxResults) {
+            @RequestParam(defaultValue = "10") Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按分类和日期之后搜索请求: {}, 日期从: {}", category, startDate);
         maxResults = validateMaxResults(maxResults);
         ArxivSearchResponse response = arxivService.searchByCategoryFromDate(category, startDate, maxResults);
@@ -204,7 +203,7 @@ public class ArxivController {
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchByCategoryToDate(
             @PathVariable String category,
             @RequestParam String endDate,
-            @RequestParam(defaultValue = "10") Integer maxResults) {
+            @RequestParam(defaultValue = "10") Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按分类和日期之前搜索请求: {}, 日期到: {}", category, endDate);
         maxResults = validateMaxResults(maxResults);
         ArxivSearchResponse response = arxivService.searchByCategoryToDate(category, endDate, maxResults);
@@ -222,7 +221,7 @@ public class ArxivController {
             @RequestParam(required = false) Integer maxResults,
             @RequestParam(defaultValue = "api") String source,
             @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(required = false) Boolean hasGithub) {
+            @RequestParam(required = false) Boolean hasGithub) throws UnsupportedEncodingException {
         log.info("收到按日期范围搜索请求: {} 到 {}, 最大结果数: {}, 来源: {}, 页码: {}, hasGithub: {}", startDate, endDate, maxResults, source, page, hasGithub);
         // 对于日期范围查询，不在controller层限制maxResults，由client层根据日期范围自动计算
         if ("db".equalsIgnoreCase(source)) {
@@ -242,7 +241,7 @@ public class ArxivController {
     @GetMapping("/date")
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchByDate(
             @RequestParam String date,
-            @RequestParam(required = false) Integer maxResults) {
+            @RequestParam(required = false) Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按日期搜索请求: {}, 最大结果数: {}", date, maxResults);
         // 对于单日查询，不在controller层限制maxResults，由client层自动计算（单日最大1000）
         ArxivSearchResponse response = arxivService.searchByDate(date, maxResults);
@@ -256,7 +255,7 @@ public class ArxivController {
     @GetMapping("/recent")
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchRecentPapers(
             @RequestParam(defaultValue = "7") Integer days,
-            @RequestParam(required = false) Integer maxResults) {
+            @RequestParam(required = false) Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到获取最近论文请求，天数: {}, 最大结果数: {}", days, maxResults);
         // 对于最近N天查询，不在controller层限制maxResults，由client层根据天数自动计算（天数*1000）
         ArxivSearchResponse response = arxivService.searchRecentPapers(days, maxResults);
@@ -274,7 +273,7 @@ public class ArxivController {
             @RequestParam(required = false) Integer maxResults,
             @RequestParam(defaultValue = "api") String source,
             @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(required = false) Boolean hasGithub) {
+            @RequestParam(required = false) Boolean hasGithub) throws UnsupportedEncodingException {
         log.info("收到获取最近分类论文请求: {}, 天数: {}, 最大结果数: {}, 来源: {}, 页码: {}, hasGithub: {}", category, days, maxResults, source, page, hasGithub);
         // 对于最近N天查询，不在controller层限制maxResults，由client层根据天数自动计算（天数*1000）
         if ("db".equalsIgnoreCase(source)) {
@@ -296,7 +295,7 @@ public class ArxivController {
     @PostMapping("/categories/multiple")
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchByMultipleCategories(
             @RequestBody List<String> categories,
-            @RequestParam(defaultValue = "10") Integer maxResults) {
+            @RequestParam(defaultValue = "10") Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按多个分类搜索请求: {}", categories);
         maxResults = validateMaxResults(maxResults);
         ArxivSearchResponse response = arxivService.searchByMultipleCategories(categories, maxResults);
@@ -312,7 +311,7 @@ public class ArxivController {
             @RequestBody List<String> categories,
             @RequestParam String startDate,
             @RequestParam String endDate,
-            @RequestParam(defaultValue = "10") Integer maxResults) {
+            @RequestParam(defaultValue = "10") Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按多个分类和日期范围搜索请求: {}, 日期范围: {} 到 {}", categories, startDate, endDate);
         maxResults = validateMaxResults(maxResults);
         ArxivSearchResponse response = arxivService.searchByMultipleCategoriesAndDateRange(categories, startDate, endDate, maxResults);
@@ -327,7 +326,7 @@ public class ArxivController {
     public ResponseEntity<ApiResponse<ArxivSearchResponse>> searchByCategoryAndKeyword(
             @PathVariable String category,
             @PathVariable String keyword,
-            @RequestParam(defaultValue = "10") Integer maxResults) {
+            @RequestParam(defaultValue = "10") Integer maxResults) throws UnsupportedEncodingException {
         log.info("收到按分类和关键词搜索请求: {}, 关键词: {}", category, keyword);
         maxResults = validateMaxResults(maxResults);
         ArxivSearchResponse response = arxivService.searchByCategoryAndKeyword(category, keyword, maxResults);
@@ -528,7 +527,7 @@ public class ArxivController {
     }
 
     /**
-     * 获取论文PDF（代理接口，解决CORS问题）
+     * 获取论文PDF
      * GET /api/arxiv/pdf/{arxivId}
      */
     @GetMapping("/pdf/{arxivId}")

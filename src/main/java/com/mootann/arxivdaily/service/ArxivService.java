@@ -18,6 +18,7 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.UnsupportedEncodingException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +53,7 @@ public class ArxivService {
      * @param arxivId arXiv ID
      * @return 论文信息
      */
-    public ArxivPaperDTO getPaperById(String arxivId) {
+    public ArxivPaperDTO getPaperById(String arxivId) throws UnsupportedEncodingException {
         log.info("获取论文信息: {}", arxivId);
 
         // 先从Redis缓存获取
@@ -98,7 +99,7 @@ public class ArxivService {
      * @param arxivIds arXiv ID列表
      * @return 论文信息列表
      */
-    public List<ArxivPaperDTO> getPapersByIds(List<String> arxivIds) {
+    public List<ArxivPaperDTO> getPapersByIds(List<String> arxivIds) throws UnsupportedEncodingException {
         log.info("批量获取论文信息，数量: {}", arxivIds.size());
 
         List<ArxivPaperDTO> result = new ArrayList<>();
@@ -200,7 +201,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         log.info("按分类和日期范围搜索论文: {}, 日期范围: {} 到 {}, 页码: {}", category, startDate, endDate, page);
         ArxivSearchResponse response = arxivClient.searchByCategoryAndDateRange(category, startDate, endDate, maxResults, page);
 
@@ -219,7 +220,7 @@ public class ArxivService {
      * @param endDate 结束日期，格式：YYYY-MM-DD
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate) {
+    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate) throws UnsupportedEncodingException {
         return searchByCategoryAndDateRange(category, startDate, endDate, 10, 1);
     }
 
@@ -230,7 +231,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryFromDate(String category, String startDate, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryFromDate(String category, String startDate, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按分类和日期之后搜索论文: {}, 日期从: {}", category, startDate);
         ArxivSearchResponse response = arxivClient.searchByCategoryFromDate(category, startDate, maxResults);
         
@@ -248,7 +249,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryToDate(String category, String endDate, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryToDate(String category, String endDate, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按分类和日期之前搜索论文: {}, 日期到: {}", category, endDate);
         ArxivSearchResponse response = arxivClient.searchByCategoryToDate(category, endDate, maxResults);
         
@@ -266,7 +267,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchByDateRange(String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         log.info("按日期范围搜索论文: {} 到 {}, 页码: {}", startDate, endDate, page);
         ArxivSearchResponse response = arxivClient.searchByDateRange(startDate, endDate, maxResults, page);
 
@@ -283,7 +284,7 @@ public class ArxivService {
      * @param endDate 结束日期，格式：YYYY-MM-DD
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate) {
+    public ArxivSearchResponse searchByDateRange(String startDate, String endDate) throws UnsupportedEncodingException {
         return searchByDateRange(startDate, endDate, 10, 1);
     }
 
@@ -293,7 +294,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByDate(String date, Integer maxResults) {
+    public ArxivSearchResponse searchByDate(String date, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按日期搜索论文: {}", date);
         ArxivSearchResponse response = arxivClient.searchByDate(date, maxResults);
         
@@ -310,7 +311,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchRecentPapers(int days, Integer maxResults) {
+    public ArxivSearchResponse searchRecentPapers(int days, Integer maxResults) throws UnsupportedEncodingException {
         log.info("获取最近 {} 天的论文", days);
         ArxivSearchResponse response = arxivClient.searchRecentPapers(days, maxResults);
         
@@ -328,7 +329,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchRecentPapersByCategory(String category, int days, Integer maxResults, Integer page) {
+    public ArxivSearchResponse searchRecentPapersByCategory(String category, int days, Integer maxResults, Integer page) throws UnsupportedEncodingException {
         log.info("获取最近 {} 天 {} 分类的论文, 页码: {}", days, category, page);
         ArxivSearchResponse response = arxivClient.searchRecentPapersByCategory(category, days, maxResults, page);
 
@@ -345,7 +346,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByMultipleCategories(List<String> categories, Integer maxResults) {
+    public ArxivSearchResponse searchByMultipleCategories(List<String> categories, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按多个分类搜索论文: {}", categories);
         ArxivSearchResponse response = arxivClient.searchByMultipleCategories(categories, maxResults);
         
@@ -364,7 +365,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByMultipleCategoriesAndDateRange(List<String> categories, String startDate, String endDate, Integer maxResults) {
+    public ArxivSearchResponse searchByMultipleCategoriesAndDateRange(List<String> categories, String startDate, String endDate, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按多个分类和日期范围搜索论文: {}, 日期范围: {} 到 {}", categories, startDate, endDate);
         ArxivSearchResponse response = arxivClient.searchByMultipleCategoriesAndDateRange(categories, startDate, endDate, maxResults);
         
@@ -382,7 +383,7 @@ public class ArxivService {
      * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByCategoryAndKeyword(String category, String keyword, Integer maxResults) {
+    public ArxivSearchResponse searchByCategoryAndKeyword(String category, String keyword, Integer maxResults) throws UnsupportedEncodingException {
         log.info("按分类和关键词搜索论文: {}, 关键词: {}", category, keyword);
         ArxivSearchResponse response = arxivClient.searchByCategoryAndKeyword(category, keyword, maxResults);
         

@@ -21,7 +21,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class DailyArxivSyncTask {
+public class ArxivSyncTask {
 
     @Autowired
     private RedisClient redisClient;
