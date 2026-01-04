@@ -135,3 +135,15 @@ export const getLatestPublishedDate = () => {
     method: 'get',
   });
 };
+
+export const getLatestPapers = (
+  page: number = 1,
+  size: number = 10,
+  hasGithub?: boolean
+) => {
+  return arxivService<ApiResponse<ArxivSearchResponse>>({
+    url: '/database/latest-papers',
+    method: 'get',
+    params: { page, size, hasGithub },
+  });
+};

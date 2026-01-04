@@ -106,18 +106,16 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { arxivApi } from '@/api/arxiv';
 import type { ArxivPaper } from '@/types/arxiv';
 
 const router = useRouter();
-const route = useRoute();
 
 const formRef = ref<FormInstance>();
 const saving = ref(false);
-const paperId = ref<number>(Number(route.params.id));
 
 const form = reactive<ArxivPaper>({
   id: 0,

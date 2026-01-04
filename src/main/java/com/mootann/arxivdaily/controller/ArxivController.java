@@ -359,6 +359,20 @@ public class ArxivController {
     }
 
     /**
+     * 获取数据库中最后一天的论文
+     * GET /api/arxiv/database/latest-papers?page=1&size=10&hasGithub=true
+     */
+    @GetMapping("/database/latest-papers")
+    public ResponseEntity<ApiResponse<ArxivSearchResponse>> getLatestPapersFromDatabase(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) Boolean hasGithub) {
+        log.info("收到获取最后一天论文请求，页码: {}, 每页数量: {}, hasGithub: {}", page, size, hasGithub);
+        ArxivSearchResponse response = arxivService.getLatestPapersFromDatabase(page, size, hasGithub);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
      * 获取数据库中最新的论文发布日期
      * GET /api/arxiv/database/latest-date
      */

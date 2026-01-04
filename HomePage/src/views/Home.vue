@@ -83,7 +83,7 @@
     <div v-else-if="error" class="error-container">
         <i class="fas fa-exclamation-circle"></i>
         <p>{{ error }}</p>
-        <button @click="loadPapers" class="retry-btn">Retry</button>
+        <button @click="() => loadPapers()" class="retry-btn">Retry</button>
     </div>
 
     <!-- Empty State -->
@@ -156,7 +156,7 @@
         <button 
             v-if="!showBackToTop" 
             class="fab-btn fab-refresh" 
-            @click="loadPapers" 
+            @click="() => loadPapers()" 
             :disabled="loading" 
             title="刷新"
         >
@@ -187,11 +187,14 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import PaperModal from '@/components/PaperModal.vue';
 import PaperCover from '@/components/PaperCover.vue';
-import { searchByKeyword, searchByDateRange, searchByCategoryAndDateRange, getCategoryCounts } from '@/api/arxiv';
-import type { ArxivPaper, CategoryCount } from '@/types/arxiv';
+import { searchByKeyword, searchByDateRange, searchByCategoryAndDateRange, getCategoryCounts, getLatestPapers } from '@/api/arxiv';
+import type { ArxivPaper } from '@/types/arxiv';
 import 'katex/dist/katex.min.css';
 // @ts-ignore
 import renderMathInElement from 'katex/dist/contrib/auto-render.mjs';
+
+// 标记页面是否已初始化（初始加载完成后才启用watch监听）
+const isInitialized = ref(false);
 
 const currentTag = ref('All');
 const searchSource = ref('db');
@@ -215,12 +218,9 @@ const toggleViewMode = () => {
   isSimpleView.value = !isSimpleView.value;
 };
 
-// 初始化日期过滤器：默认当天
-const today = new Date();
-const todayStr = today.toISOString().split('T')[0];
-
-const startDateFilter = ref(todayStr);
-const endDateFilter = ref(todayStr);
+// 初始化日期过滤器：默认为空，等待从后端获取最新日期
+const startDateFilter = ref('');
+const endDateFilter = ref('');
 const hasGithub = ref(false);
 
 const getPaperPdfUrl = (paper: ArxivPaper) => {
@@ -275,6 +275,7 @@ const setTitleRef = (el: any, index: number) => {
 };
 
 watch(searchSource, () => {
+  if (!isInitialized.value) return;
   if (searchQuery.value.trim()) {
     handleSearch();
   } else {
@@ -283,6 +284,7 @@ watch(searchSource, () => {
 });
 
 watch(hasGithub, () => {
+  if (!isInitialized.value) return;
   loadPapers();
 });
 
@@ -331,7 +333,7 @@ const renderLatex = () => {
   });
 };
 
-const loadPapers = async () => {
+const loadPapers = async (useLatest = false) => {
   loading.value = true;
   error.value = '';
   currentPage.value = 1;
@@ -345,6 +347,45 @@ const loadPapers = async () => {
     const endDate = endDateFilter.value || '';
     const startDate = startDateFilter.value || '';
     
+    // 如果使用最新数据接口且是数据库查询
+    if (useLatest && searchSource.value === 'db') {
+      response = await getLatestPapers(
+        1,
+        resultCount.value,
+        hasGithub.value ? true : undefined
+      );
+      
+      if (response.data && response.data.data) {
+        const data = response.data.data;
+        papers.value = data.papers || [];
+        hasMore.value = (data.papers || []).length >= resultCount.value;
+        
+        // 更新日期过滤器（在页面初始化完成之前，不会触发watch）
+        if (data.actualStartDate && data.actualEndDate) {
+          startDateFilter.value = data.actualStartDate;
+          endDateFilter.value = data.actualEndDate;
+        }
+        
+        // 更新分类统计
+        if (data.categoryCounts) {
+          tags.value.forEach(t => t.count = 0);
+          data.categoryCounts.forEach((item: any) => {
+            const tag = tags.value.find(t => t.name === item.category);
+            if (tag) {
+              tag.count = item.count;
+            }
+          });
+        }
+        
+        renderLatex();
+      } else {
+        papers.value = [];
+        hasMore.value = false;
+      }
+      return;
+    }
+    
+    // 正常查询逻辑
     if (currentTag.value === 'All') {
       response = await searchByDateRange(
         startDate,
@@ -576,11 +617,19 @@ const scrollToTop = () => {
   });
 };
 
-watch([currentTag, searchSource, resultCount, startDateFilter, endDateFilter], () => {
+// 监听标签、数据源、结果数量的变化
+watch([currentTag, searchSource, resultCount], () => {
+  // 如果页面未初始化，跳过监听（避免页面加载时重复请求）
+  if (!isInitialized.value) return;
   loadPapers();
 });
 
+// 监听日期过滤器的变化（仅用户手动修改时触发）
 watch([startDateFilter, endDateFilter], () => {
+  // 如果页面未初始化，跳过监听（避免页面加载时重复请求）
+  if (!isInitialized.value) return;
+  // 用户手动修改日期后，重新加载论文和分类统计
+  loadPapers();
   fetchCategoryCounts();
 });
 
@@ -609,9 +658,13 @@ const fetchCategoryCounts = async () => {
   }
 };
 
-onMounted(() => {
-  fetchCategoryCounts();
-  loadPapers();
+onMounted(async () => {
+  // 直接获取最后一天的论文，避免重复请求
+  await loadPapers(true);
+  // 加载完成后，标记页面已初始化，用户后续操作才会触发watch
+  // 使用 nextTick 确保数据更新完成后再启用监听
+  await nextTick();
+  isInitialized.value = true;
   window.addEventListener('scroll', throttledHandleScroll);
 });
 

@@ -1073,32 +1073,17 @@ public class ArxivService {
     }
 
     public ArxivSearchResponse searchByCategoryAndDateRangeFromDb(String category, String startDate, String endDate, int page, int size, Boolean hasGithub) {
-        // 先查询指定日期范围的论文
+        // 查询指定日期范围的论文
         Page<ArxivPaper> result = getPapersByCategoryAndDateRangeFromDatabase(category, startDate, endDate, page, size, hasGithub);
         
-        String actualStartDate = startDate;
-        String actualEndDate = endDate;
-        
-        // 如果没有数据且是第一页,则尝试查询数据库中最后一天的论文
-        if (!result.hasContent() && page == 1) {
-            log.info("指定日期范围 {} 到 {} 没有数据,尝试查询数据库中最后一天的论文", startDate, endDate);
-            LocalDate latestDate = getLatestPublishedDate();
-            if (latestDate != null) {
-                log.info("数据库中最新的论文发布日期: {}", latestDate);
-                actualStartDate = latestDate.toString();
-                actualEndDate = latestDate.toString();
-                result = getPapersByCategoryAndDateRangeFromDatabase(category, actualStartDate, actualEndDate, page, size, hasGithub);
-            }
-        }
-        
         ArxivSearchResponse response = convertPageToResponse(result);
-        response.setActualStartDate(actualStartDate);
-        response.setActualEndDate(actualEndDate);
+        response.setActualStartDate(startDate);
+        response.setActualEndDate(endDate);
         
         // 添加分类统计信息
         try {
-            LocalDate start = LocalDate.parse(actualStartDate);
-            LocalDate end = LocalDate.parse(actualEndDate);
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end = LocalDate.parse(endDate);
             List<CategoryCountDTO> categoryCounts = getCategoryCountsFromDatabase(start, end);
             response.setCategoryCounts(categoryCounts);
         } catch (Exception e) {
@@ -1109,32 +1094,17 @@ public class ArxivService {
     }
 
     public ArxivSearchResponse searchByDateRangeFromDb(String startDate, String endDate, int page, int size) {
-        // 先查询指定日期范围的论文
+        // 查询指定日期范围的论文
         Page<ArxivPaper> result = getPapersByDateRangeFromDatabase(startDate, endDate, page, size);
         
-        String actualStartDate = startDate;
-        String actualEndDate = endDate;
-        
-        // 如果没有数据且是第一页,则尝试查询数据库中最后一天的论文
-        if (!result.hasContent() && page == 1) {
-            log.info("指定日期范围 {} 到 {} 没有数据,尝试查询数据库中最后一天的论文", startDate, endDate);
-            LocalDate latestDate = getLatestPublishedDate();
-            if (latestDate != null) {
-                log.info("数据库中最新的论文发布日期: {}", latestDate);
-                actualStartDate = latestDate.toString();
-                actualEndDate = latestDate.toString();
-                result = getPapersByDateRangeFromDatabase(actualStartDate, actualEndDate, page, size);
-            }
-        }
-        
         ArxivSearchResponse response = convertPageToResponse(result);
-        response.setActualStartDate(actualStartDate);
-        response.setActualEndDate(actualEndDate);
+        response.setActualStartDate(startDate);
+        response.setActualEndDate(endDate);
         
         // 添加分类统计信息
         try {
-            LocalDate start = LocalDate.parse(actualStartDate);
-            LocalDate end = LocalDate.parse(actualEndDate);
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end = LocalDate.parse(endDate);
             List<CategoryCountDTO> categoryCounts = getCategoryCountsFromDatabase(start, end);
             response.setCategoryCounts(categoryCounts);
         } catch (Exception e) {
@@ -1146,8 +1116,6 @@ public class ArxivService {
 
     // 支持hasGithub参数的重载方法
     public ArxivSearchResponse searchByDateRangeFromDb(String startDate, String endDate, Integer page, Integer size, Boolean hasGithub) {
-        String actualStartDate = startDate;
-        String actualEndDate = endDate;
         Page<ArxivPaper> result;
         
         if (hasGithub == null) {
@@ -1164,36 +1132,14 @@ public class ArxivService {
             }
         }
         
-        // 如果没有数据且是第一页,则尝试查询数据库中最后一天的论文
-        if (!result.hasContent() && page == 1) {
-            log.info("指定日期范围 {} 到 {} 没有数据,尝试查询数据库中最后一天的论文", startDate, endDate);
-            LocalDate latestDate = getLatestPublishedDate();
-            if (latestDate != null) {
-                log.info("数据库中最新的论文发布日期: {}", latestDate);
-                actualStartDate = latestDate.toString();
-                actualEndDate = latestDate.toString();
-                
-                if (hasGithub == null) {
-                    result = getPapersByDateRangeFromDatabase(actualStartDate, actualEndDate, page, size);
-                } else {
-                    Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "publishedDate"));
-                    if (hasGithub) {
-                        result = arxivPaperRepository.findByPublishedDateBetweenAndGithubUrlIsNotNull(latestDate, latestDate, pageable);
-                    } else {
-                        result = arxivPaperRepository.findByPublishedDateBetweenAndGithubUrlIsNull(latestDate, latestDate, pageable);
-                    }
-                }
-            }
-        }
-        
         ArxivSearchResponse response = convertPageToResponse(result);
-        response.setActualStartDate(actualStartDate);
-        response.setActualEndDate(actualEndDate);
+        response.setActualStartDate(startDate);
+        response.setActualEndDate(endDate);
         
         // 添加分类统计信息
         try {
-            LocalDate start = LocalDate.parse(actualStartDate);
-            LocalDate end = LocalDate.parse(actualEndDate);
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end = LocalDate.parse(endDate);
             List<CategoryCountDTO> categoryCounts = getCategoryCountsFromDatabase(start, end);
             response.setCategoryCounts(categoryCounts);
         } catch (Exception e) {
@@ -1238,6 +1184,46 @@ public class ArxivService {
         } catch (Exception e) {
             log.error("清除分类缓存失败: {}", category, e);
         }
+    }
+
+    /**
+     * 获取数据库中最后一天的论文
+     * @param page 页码
+     * @param size 每页数量
+     * @param hasGithub 是否有GitHub URL
+     * @return 搜索结果
+     */
+    public ArxivSearchResponse getLatestPapersFromDatabase(int page, int size, Boolean hasGithub) {
+        log.info("获取数据库中最后一天的论文");
+        LocalDate latestDate = getLatestPublishedDate();
+        if (latestDate == null) {
+            log.warn("数据库中没有论文数据");
+            return new ArxivSearchResponse();
+        }
+        
+        log.info("数据库中最新的论文发布日期: {}", latestDate);
+        String date = latestDate.toString();
+        
+        Page<ArxivPaper> result;
+        if (hasGithub == null) {
+            result = getPapersByDateRangeFromDatabase(date, date, page, size);
+        } else {
+            result = getPapersByDateRangeFromDatabase(date, date, page, size, hasGithub);
+        }
+        
+        ArxivSearchResponse response = convertPageToResponse(result);
+        response.setActualStartDate(date);
+        response.setActualEndDate(date);
+        
+        // 添加分类统计信息
+        try {
+            List<CategoryCountDTO> categoryCounts = getCategoryCountsFromDatabase(latestDate, latestDate);
+            response.setCategoryCounts(categoryCounts);
+        } catch (Exception e) {
+            log.error("获取分类统计信息失败", e);
+        }
+        
+        return response;
     }
 
     /**

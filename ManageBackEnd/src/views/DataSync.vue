@@ -329,8 +329,8 @@ const handleSyncByDateRange = async () => {
       );
     }
     const data = response.data.data;
-    addLog(`成功获取 ${data.papers.length} 篇论文（总共 ${data.totalResults} 篇）`, 'success');
-    ElMessage.success(`成功获取 ${data.papers.length} 篇论文`);
+    addLog(`成功获取 ${data.entries.length} 篇论文（总共 ${data.totalResults} 篇）`, 'success');
+    ElMessage.success(`成功获取 ${data.entries.length} 篇论文`);
   } catch (error) {
     addLog(`同步失败: ${error}`, 'error');
     ElMessage.error('同步失败');
@@ -392,8 +392,8 @@ const handleSyncRecent = async () => {
       );
     }
     const data = response.data.data;
-    addLog(`成功获取 ${data.papers.length} 篇论文（总共 ${data.totalResults} 篇）`, 'success');
-    ElMessage.success(`成功获取 ${data.papers.length} 篇论文`);
+    addLog(`成功获取 ${data.entries.length} 篇论文（总共 ${data.totalResults} 篇）`, 'success');
+    ElMessage.success(`成功获取 ${data.entries.length} 篇论文`);
   } catch (error) {
     addLog(`同步失败: ${error}`, 'error');
     ElMessage.error('同步失败');

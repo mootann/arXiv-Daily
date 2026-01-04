@@ -110,8 +110,8 @@
 
       <template #footer>
         <el-button @click="viewDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="handleOpenLink(currentPaper.arxivUrl)">打开arXiv页面</el-button>
-        <el-button type="success" @click="handleOpenLink(currentPaper.pdfUrl)">下载PDF</el-button>
+        <el-button type="primary" @click="currentPaper && handleOpenLink(currentPaper.arxivUrl)">打开arXiv页面</el-button>
+        <el-button type="success" @click="currentPaper && handleOpenLink(currentPaper.pdfUrl)">下载PDF</el-button>
       </template>
     </el-dialog>
   </div>
@@ -123,8 +123,11 @@ import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { arxivApi } from '@/api/arxiv';
 import type { ArxivPaper } from '@/types/arxiv';
+// @ts-ignore
 import 'katex/dist/katex.min.css';
+// @ts-ignore
 import katex from 'katex';
+// @ts-ignore
 import renderMathInElement from 'katex/dist/contrib/auto-render';
 
 const router = useRouter();
@@ -488,7 +491,7 @@ const handleEdit = (row: ArxivPaper) => {
   router.push(`/papers/${row.id}/edit`);
 };
 
-const handleOpenLink = (url: string) => {
+const handleOpenLink = (url?: string) => {
   if (url) {
     window.open(url, '_blank');
   }
