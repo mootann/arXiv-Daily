@@ -1,0 +1,142 @@
+server:
+  port: 18081
+
+spring:
+  profiles:
+    active: docker  # 启用配置文件
+  datasource:
+    url: jdbc:postgresql://localhost:15432/arXiv-Daily
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+    hikari:     #数据库连接池配置
+      minimum-idle: 5
+      maximum-pool-size: 20
+      auto-commit: true
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: arXivDailyHikariCP
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      ddl-auto: update  #可选: none, update, create, create-drop, validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        transaction:
+          jta:
+            platform: org.hibernate.engine.transaction.jta.platform.internal.JBossStandAloneJtaPlatform
+
+  data:
+    redis:
+      host: localhost         # Redis服务器地址
+      port: 16379             # Redis服务器端口
+      password: 123456        # Redis服务器密码
+      database: 0             # Redis数据库索引（默认为0）
+      timeout: 3000           # 连接超时时间（毫秒）
+      lettuce:
+        pool:
+          max-active: 20      # 连接池最大连接数
+          max-idle: 10        # 连接池最大空闲连接数
+          min-idle: 5         # 连接池最小空闲连接数
+          max-wait: 3000      # 连接池最大阻塞等待时间（毫秒）
+
+  kafka:
+    bootstrap-servers: localhost:19092              # Kafka服务器地址
+    # Kafka生产者配置
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer    # Key序列化器
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer  # Value序列化器
+      acks: all                                    # 消息确认机制
+      retries: 3                                   # 重试次数
+      batch-size: 16384                            # 批量发送大小（字节）
+      buffer-memory: 33554432                      # 缓冲区大小（字节）
+      compression-type: none                       # 消息压缩类型
+      properties:
+        request.timeout.ms: 30000                   # 请求超时时间（毫秒）
+        delivery.timeout.ms: 120000                # 投递超时时间（毫秒）
+        enable.idempotence: true                   # 启用幂等性
+    # Kafka消费者配置
+    consumer:
+      group-id: arxiv-daily-group                 # 消费者组ID
+      auto-offset-reset: latest                    # 没有初始偏移量时的策略
+      enable-auto-commit: true                     # 启用自动提交
+      auto-commit-interval: 5000                   # 自动提交间隔时间（毫秒）
+      max-poll-records: 500                        # 一次拉取最大记录数
+      fetch-max-wait: 500                          # 拉取间隔时间（毫秒）
+      session-timeout: 30000                       # 会话超时时间（毫秒）
+      heartbeat-interval: 10000                    # 心跳间隔时间（毫秒）
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer  # Key反序列化器
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer  # Value反序列化器
+    # Kafka监听器配置
+    listener:
+      ack-mode: record                             # 确认模式
+      concurrency: 1                               # 消费者并发数
+
+logging:
+  level:
+    org.hibernate.orm.connections.pooling: WARN   #Hibernate 6日志记录BUG 关闭Info提示
+
+# JWT配置
+jwt:
+  secret: arxiv-daily-secret-key-for-jwt-token-generation-and-validation-2026
+  expiration: 86400000  # JWT过期时间（毫秒），默认24小时
+
+# arxiv API代理配置
+arxiv:
+  proxy:
+    enabled: true
+    host: 127.0.0.1    # 代理服务器地址
+    port: 7890         # 代理服务器端口
+
+# GitHub API配置
+github:
+  api-base-url: https://api.github.com
+  repository: mootann/arXiv-Daily       # 仓库地址
+  proxy-enabled: true                   # 是否使用代理
+  proxy-host: 127.0.0.1                 # 代理服务器地址
+  proxy-port: 7890                      # 代理服务器端口
+
+# MinIO对象存储配置
+minio:
+  endpoint: http://localhost:9000          # MinIO服务器地址
+  access-key: minioadmin                   # MinIO访问密钥
+  secret-key: minioadmin                   # MinIO密钥
+  bucket-name: arxiv-daily                 # 默认存储桶名称
+  auto-create-bucket: true                 # 是否在启动时自动创建存储桶
+  connect-timeout: 10000                   # 连接超时时间（毫秒）
+  write-timeout: 60000                     # 写入超时时间（毫秒）
+  read-timeout: 10000                      # 读取超时时间（毫秒）
+
+# Kafka消息队列配置
+kafka:
+  bootstrap-servers: localhost:9092               # Kafka服务器地址
+  enabled: true                                   # 是否启用Kafka
+  # 生产者配置
+  producer:
+    default-topic: arxiv-daily                    # 默认主题
+    acks: all                                      # 消息确认机制
+    retries: 3                                     # 重试次数
+    batch-size: 16384                              # 批量发送大小（字节）
+    buffer-memory: 33554432                        # 缓冲区大小（字节）
+    compression-type: none                        # 消息压缩类型
+    request-timeout-ms: 30000                      # 请求超时时间（毫秒）
+    delivery-timeout-ms: 120000                   # 投递超时时间（毫秒）
+    enable-idempotence: true                       # 启用幂等性
+  # 消费者配置
+  consumer:
+    group-id: arxiv-daily-group                   # 消费者组ID
+    enable-auto-commit: true                       # 启用自动提交
+    auto-commit-interval-ms: 5000                  # 自动提交间隔时间（毫秒）
+    auto-offset-reset: latest                     # 没有初始偏移量时的策略
+    max-poll-records: 500                          # 一次拉取最大记录数
+    fetch-max-wait-ms: 500                         # 拉取间隔时间（毫秒）
+    session-timeout-ms: 30000                      # 会话超时时间（毫秒）
+    heartbeat-interval-ms: 10000                   # 心跳间隔时间（毫秒）
+    topics:                                        # 默认主题列表
+      - arxiv-daily
+    concurrency: 1                                 # 消费者并发数
+    batch-listener: false                          # 是否启用批量消费

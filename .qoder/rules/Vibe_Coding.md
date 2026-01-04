@@ -1,0 +1,8 @@
+---
+trigger: always_on
+---
+代码中注释请使用中文，避免使用英文注释。
+代码修改完成后，不需要执行编译操作，让用户自行编译查看是否有误
+数据库字段中的创建时间和更新时间应该使用created_time和updated_time进行命名
+实体类中的创建时间和更新时间应该使用created_time和updated_time进行命名
+实体类转换使用MapStruct
