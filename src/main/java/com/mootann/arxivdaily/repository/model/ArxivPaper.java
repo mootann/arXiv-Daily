@@ -1,4 +1,4 @@
-package com.mootann.arxivdaily.model;
+package com.mootann.arxivdaily.repository.model;
 
 import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;

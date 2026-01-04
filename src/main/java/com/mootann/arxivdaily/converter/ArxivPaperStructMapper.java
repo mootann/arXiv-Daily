@@ -1,7 +1,7 @@
 package com.mootann.arxivdaily.converter;
 
-import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
-import com.mootann.arxivdaily.model.ArxivPaper;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
+import com.mootann.arxivdaily.repository.model.ArxivPaper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

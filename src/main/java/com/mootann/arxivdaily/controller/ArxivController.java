@@ -1,11 +1,11 @@
 package com.mootann.arxivdaily.controller;
 
-import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
-import com.mootann.arxivdaily.dto.arxiv.ArxivSearchRequest;
-import com.mootann.arxivdaily.dto.CategoryCountDTO;
-import com.mootann.arxivdaily.dto.arxiv.ArxivSearchResponse;
-import com.mootann.arxivdaily.dto.ApiResponse;
-import com.mootann.arxivdaily.model.ArxivPaper;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchRequest;
+import com.mootann.arxivdaily.repository.dto.CategoryCountDTO;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchResponse;
+import com.mootann.arxivdaily.repository.dto.ApiResponse;
+import com.mootann.arxivdaily.repository.model.ArxivPaper;
 import com.mootann.arxivdaily.service.ArxivService;
 import com.mootann.arxivdaily.task.ArxivSyncTask;
 import lombok.extern.slf4j.Slf4j;

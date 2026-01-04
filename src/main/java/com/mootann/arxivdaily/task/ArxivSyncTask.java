@@ -2,8 +2,8 @@ package com.mootann.arxivdaily.task;
 
 import com.mootann.arxivdaily.client.ArxivClient;
 import com.mootann.arxivdaily.client.RedisClient;
-import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
-import com.mootann.arxivdaily.dto.arxiv.ArxivSearchResponse;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchResponse;
 import com.mootann.arxivdaily.service.ArxivService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

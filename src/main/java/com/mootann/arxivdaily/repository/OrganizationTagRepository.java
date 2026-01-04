@@ -1,6 +1,6 @@
 package com.mootann.arxivdaily.repository;
 
-import com.mootann.arxivdaily.model.OrganizationTag;
+import com.mootann.arxivdaily.repository.model.OrganizationTag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

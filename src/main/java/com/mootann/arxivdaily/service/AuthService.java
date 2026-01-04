@@ -2,11 +2,11 @@ package com.mootann.arxivdaily.service;
 
 import com.mootann.arxivdaily.constant.OrganizationConstant;
 import com.mootann.arxivdaily.constant.UserConstant;
-import com.mootann.arxivdaily.dto.user.LoginRequest;
-import com.mootann.arxivdaily.dto.user.LoginResponse;
-import com.mootann.arxivdaily.dto.user.RegisterRequest;
-import com.mootann.arxivdaily.model.OrganizationTag;
-import com.mootann.arxivdaily.model.User;
+import com.mootann.arxivdaily.repository.dto.user.LoginRequest;
+import com.mootann.arxivdaily.repository.dto.user.LoginResponse;
+import com.mootann.arxivdaily.repository.dto.user.RegisterRequest;
+import com.mootann.arxivdaily.repository.model.OrganizationTag;
+import com.mootann.arxivdaily.repository.model.User;
 import com.mootann.arxivdaily.repository.OrganizationTagRepository;
 import com.mootann.arxivdaily.repository.UserRepository;
 import com.mootann.arxivdaily.util.JwtRedisCache;
@@ -16,10 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 @Slf4j
 @Service

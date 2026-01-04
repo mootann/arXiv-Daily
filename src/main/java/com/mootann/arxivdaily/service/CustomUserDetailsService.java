@@ -1,7 +1,7 @@
 package com.mootann.arxivdaily.service;
 
 import com.mootann.arxivdaily.constant.UserConstant;
-import com.mootann.arxivdaily.model.User;
+import com.mootann.arxivdaily.repository.model.User;
 import com.mootann.arxivdaily.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -2,7 +2,7 @@ package com.mootann.arxivdaily.task;
 
 import com.mootann.arxivdaily.client.GitHubClient;
 import com.mootann.arxivdaily.client.RedisClient;
-import com.mootann.arxivdaily.dto.GitHubRepositoryInfo;
+import com.mootann.arxivdaily.repository.dto.GitHubRepositoryInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;

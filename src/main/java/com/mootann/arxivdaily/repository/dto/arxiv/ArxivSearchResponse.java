@@ -1,6 +1,6 @@
-package com.mootann.arxivdaily.dto.arxiv;
+package com.mootann.arxivdaily.repository.dto.arxiv;
 
-import com.mootann.arxivdaily.dto.CategoryCountDTO;
+import com.mootann.arxivdaily.repository.dto.CategoryCountDTO;
 import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;

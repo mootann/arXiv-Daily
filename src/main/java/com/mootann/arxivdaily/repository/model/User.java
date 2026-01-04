@@ -1,4 +1,4 @@
-package com.mootann.arxivdaily.model;
+package com.mootann.arxivdaily.repository.model;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;

@@ -1,6 +1,6 @@
 package com.mootann.arxivdaily.converter;
 
-import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
 import com.mootann.arxivdaily.xml.ArxivAuthor;
 import com.mootann.arxivdaily.xml.ArxivCategory;
 import com.mootann.arxivdaily.xml.ArxivEntry;

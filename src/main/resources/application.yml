@@ -79,6 +79,7 @@ spring:
 logging:
   level:
     org.hibernate.orm.connections.pooling: WARN   #Hibernate 6日志记录BUG 关闭Info提示
+    org.springframework.boot.autoconfigure: ERROR  #关闭自动配置报告日志
 
 # JWT配置
 jwt:
@@ -140,3 +141,9 @@ kafka:
       - arxiv-daily
     concurrency: 1                                 # 消费者并发数
     batch-listener: false                          # 是否启用批量消费
+
+# 智谱AI配置
+zhipu:
+  api-key:
+  model: glm-4.7
+  embedding-model: embedding-3-pro

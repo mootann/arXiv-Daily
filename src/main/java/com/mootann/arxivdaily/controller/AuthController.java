@@ -2,11 +2,11 @@ package com.mootann.arxivdaily.controller;
 
 import com.mootann.arxivdaily.annotation.RequireDataPermission;
 import com.mootann.arxivdaily.annotation.RequirePermission;
-import com.mootann.arxivdaily.dto.ApiResponse;
-import com.mootann.arxivdaily.dto.user.LoginRequest;
-import com.mootann.arxivdaily.dto.user.LoginResponse;
-import com.mootann.arxivdaily.dto.user.RegisterRequest;
-import com.mootann.arxivdaily.model.User;
+import com.mootann.arxivdaily.repository.dto.ApiResponse;
+import com.mootann.arxivdaily.repository.dto.user.LoginRequest;
+import com.mootann.arxivdaily.repository.dto.user.LoginResponse;
+import com.mootann.arxivdaily.repository.dto.user.RegisterRequest;
+import com.mootann.arxivdaily.repository.model.User;
 import com.mootann.arxivdaily.service.AuthService;
 import com.mootann.arxivdaily.util.SpringUtil;
 import jakarta.servlet.http.HttpServletRequest;

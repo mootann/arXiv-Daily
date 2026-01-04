@@ -1,4 +1,4 @@
-package com.mootann.arxivdaily.dto;
+package com.mootann.arxivdaily.repository.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

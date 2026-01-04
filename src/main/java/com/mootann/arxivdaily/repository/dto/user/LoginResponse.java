@@ -1,4 +1,4 @@
-package com.mootann.arxivdaily.dto.user;
+package com.mootann.arxivdaily.repository.dto.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

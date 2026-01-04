@@ -1,6 +1,6 @@
 package com.mootann.arxivdaily.repository;
 
-import com.mootann.arxivdaily.model.ArxivPaper;
+import com.mootann.arxivdaily.repository.model.ArxivPaper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

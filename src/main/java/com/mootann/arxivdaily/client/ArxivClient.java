@@ -1,11 +1,10 @@
 package com.mootann.arxivdaily.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mootann.arxivdaily.config.ArxivProxyConfig;
 import com.mootann.arxivdaily.converter.ArxivEntryMapper;
-import com.mootann.arxivdaily.dto.arxiv.ArxivPaperDTO;
-import com.mootann.arxivdaily.dto.arxiv.ArxivSearchRequest;
-import com.mootann.arxivdaily.dto.arxiv.ArxivSearchResponse;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchRequest;
+import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchResponse;
 import com.mootann.arxivdaily.xml.ArxivEntry;
 import com.mootann.arxivdaily.xml.ArxivFeed;
 import jakarta.xml.bind.JAXBContext;
@@ -13,11 +12,8 @@ import jakarta.xml.bind.Unmarshaller;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.neo4j.Neo4jProperties.Security.TrustStrategy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import javax.net.ssl.SSLContext;
 
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
