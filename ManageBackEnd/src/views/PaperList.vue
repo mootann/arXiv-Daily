@@ -215,12 +215,12 @@ const handleSearch = async () => {
 const handleSearchAll = async () => {
   loading.value = true;
   try {
-    const response = await arxivApi.getPapersFromDatabase(
-      currentPage.value, 
-      pageSize.value,
-      searchForm.hasGithub
-    );
-    const pageData = response.data.data;
+    const response = await arxivApi.getPapersFromDatabase({
+      page: currentPage.value,
+      size: pageSize.value,
+      hasGithub: searchForm.hasGithub
+    });
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -246,7 +246,7 @@ const handleSearchByKeyword = async () => {
       pageSize.value,
       searchForm.hasGithub
     );
-    const pageData = response.data.data;
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -272,7 +272,7 @@ const handleSearchByCategory = async () => {
       pageSize.value,
       searchForm.hasGithub
     );
-    const pageData = response.data.data;
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -311,7 +311,7 @@ const handleSearchByDateRange = async () => {
         searchForm.hasGithub
       );
     }
-    const pageData = response.data.data;
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -342,7 +342,7 @@ const handleSearchByCategoryAndKeyword = async () => {
       pageSize.value,
       searchForm.hasGithub
     );
-    const pageData = response.data.data;
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -370,7 +370,7 @@ const handleSearchByCategoryAndDateRange = async () => {
       pageSize.value,
       searchForm.hasGithub
     );
-    const pageData = response.data.data;
+    const pageData = getPageData(response.data.data);
     paperList.value = convertDatabasePapers(pageData.content);
     total.value = pageData.totalElements;
     ElMessage.success('查询成功');
@@ -495,6 +495,14 @@ const handleOpenLink = (url?: string) => {
   if (url) {
     window.open(url, '_blank');
   }
+};
+
+// 兼容后端返回的两种分页格式：PageCacheDTO(content/totalElements) 和 IPage(records/total)
+const getPageData = (data: any) => {
+  return {
+    content: data.content ?? data.records ?? [],
+    totalElements: data.totalElements ?? data.total ?? 0
+  };
 };
 
 const convertDatabasePapers = (papers: any[]): ArxivPaper[] => {

@@ -3,6 +3,7 @@ package com.mootann.arxivdaily.service;
 import com.mootann.arxivdaily.client.GitHubClient;
 import com.mootann.arxivdaily.client.RedisClient;
 import com.mootann.arxivdaily.repository.dto.GitHubRepositoryInfo;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,13 +16,12 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class GitHubService {
     
-    @Autowired
-    private GitHubClient gitHubClient;
+    private final GitHubClient gitHubClient;
 
-    @Autowired
-    private RedisClient redisClient;
+    private final RedisClient redisClient;
     
     /**
      * 获取仓库信息（带缓存）

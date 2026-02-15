@@ -1,47 +1,42 @@
 package com.mootann.arxivdaily.service;
 
-import com.mootann.arxivdaily.constant.OrganizationConstant;
 import com.mootann.arxivdaily.constant.UserConstant;
 import com.mootann.arxivdaily.repository.dto.user.LoginRequest;
 import com.mootann.arxivdaily.repository.dto.user.LoginResponse;
 import com.mootann.arxivdaily.repository.dto.user.RegisterRequest;
-import com.mootann.arxivdaily.repository.model.OrganizationTag;
 import com.mootann.arxivdaily.repository.model.User;
-import com.mootann.arxivdaily.repository.OrganizationTagRepository;
-import com.mootann.arxivdaily.repository.UserRepository;
+import com.mootann.arxivdaily.repository.mapper.UserMapper;
 import com.mootann.arxivdaily.util.JwtRedisCache;
 import com.mootann.arxivdaily.util.JwtUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+import java.util.Set;
+
 @Slf4j
 @Service
+@AllArgsConstructor
 public class AuthService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserMapper userMapper;
 
-    @Autowired
-    private OrganizationTagRepository organizationTagRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private JwtRedisCache jwtRedisCache;
+    private final JwtRedisCache jwtRedisCache;
 
     @Transactional
     public User register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userMapper.existsByUsername(request.getUsername())) {
             throw new RuntimeException(UserConstant.USERNAME_EXISTS);
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userMapper.existsByEmail(request.getEmail())) {
             throw new RuntimeException(UserConstant.EMAIL_EXISTS);
         }
 
@@ -51,43 +46,69 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(User.UserRole.USER);
 
-        User savedUser = userRepository.save(user);
-
-        String defaultOrgTagId = createDefaultOrganization(savedUser.getId());
-        savedUser.setPrimaryOrg(defaultOrgTagId);
-        savedUser.addOrgTag(defaultOrgTagId);
-
-        return userRepository.save(savedUser);
+        return userMapper.insert(user) > 0 ? user : null;
     }
 
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
+        User user = userMapper.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException(UserConstant.PASSWORD_ERROR);
         }
 
-        String token = jwtUtil.generateToken(
+        String accessToken = jwtUtil.generateToken(
                 user.getId(),
                 user.getUsername(),
-                user.getRole().name(),
-                user.getOrgTagSet(),
-                user.getPrimaryOrg()
+                user.getRole().name()
+        );
+        
+        String refreshToken = jwtUtil.generateRefreshToken(
+                user.getId(),
+                user.getUsername()
         );
 
-        jwtRedisCache.cacheToken(user.getUsername(), token);
+        // 缓存accessToken，refreshToken也可以选择缓存以便于撤销
+        jwtRedisCache.cacheToken(user.getUsername(), accessToken);
 
         LoginResponse response = new LoginResponse();
-        response.setToken(token);
+        response.setAccessToken(accessToken);
+        response.setRefreshToken(refreshToken);
         response.setUserId(user.getId());
         response.setUsername(user.getUsername());
         response.setRole(user.getRole().name());
-        response.setOrgTags(user.getOrgTagSet());
-        response.setPrimaryOrg(user.getPrimaryOrg());
 
         return response;
     }
+
+    public LoginResponse refreshToken(String refreshToken) {
+        if (!jwtUtil.validateToken(refreshToken)) {
+            throw new RuntimeException("Refresh Token无效或已过期");
+        }
+
+        String username = jwtUtil.extractUsername(refreshToken);
+        User user = userMapper.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
+
+        String newAccessToken = jwtUtil.generateToken(
+                user.getId(),
+                user.getUsername(),
+                user.getRole().name()
+        );
+        
+        // 刷新token时也更新缓存
+        jwtRedisCache.cacheToken(user.getUsername(), newAccessToken);
+
+        LoginResponse response = new LoginResponse();
+        response.setAccessToken(newAccessToken);
+        response.setRefreshToken(refreshToken); // 保持原Refresh Token，或者生成新的
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setRole(user.getRole().name());
+
+        return response;
+    }
+
 
     public void logout(String token) {
         if (token != null) {
@@ -97,62 +118,7 @@ public class AuthService {
     }
 
     public User getCurrentUser(Long userId) {
-        return userRepository.findById(userId)
+        return Optional.ofNullable(userMapper.selectById(userId))
                 .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
-    }
-
-    @Transactional
-    public User joinOrganization(Long userId, String tagId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
-
-        OrganizationTag orgTag = organizationTagRepository.findByTagId(tagId)
-                .orElseThrow(() -> new RuntimeException(OrganizationConstant.ORG_NOT_FOUND));
-
-        user.addOrgTag(tagId);
-        return userRepository.save(user);
-    }
-
-    @Transactional
-    public User leaveOrganization(Long userId, String tagId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
-
-        user.removeOrgTag(tagId);
-        return userRepository.save(user);
-    }
-
-    @Transactional
-    public User setPrimaryOrganization(Long userId, String tagId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException(UserConstant.USER_NOT_FOUND));
-
-        if (!user.hasOrgTag(tagId)) {
-            throw new RuntimeException("用户不属于该组织");
-        }
-
-        user.setPrimaryOrg(tagId);
-        return userRepository.save(user);
-    }
-
-    private String createDefaultOrganization(Long userId) {
-        String tagId = generateOrgTagId();
-        while (organizationTagRepository.existsByTagId(tagId)) {
-            tagId = generateOrgTagId();
-        }
-
-        OrganizationTag orgTag = new OrganizationTag();
-        orgTag.setTagId(tagId);
-        orgTag.setName(OrganizationConstant.DEFAULT_ORG_NAME + userId);
-        orgTag.setDescription("默认个人组织");
-        orgTag.setCreatedBy(userId);
-
-        organizationTagRepository.save(orgTag);
-        return tagId;
-    }
-
-    private String generateOrgTagId() {
-        return OrganizationConstant.ORG_TAG_PREFIX + java.util.UUID.randomUUID().toString()
-                .substring(0, OrganizationConstant.ORG_TAG_ID_LENGTH);
     }
 }

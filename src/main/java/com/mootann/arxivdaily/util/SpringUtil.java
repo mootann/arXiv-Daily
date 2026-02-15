@@ -1,5 +1,7 @@
 package com.mootann.arxivdaily.util;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -54,16 +56,6 @@ public class SpringUtil implements ApplicationContextAware {
         return userInfo != null ? userInfo.getRole() : null;
     }
 
-    public static Set<String> getCurrentOrgTags() {
-        UserInfo userInfo = USER_CONTEXT.get();
-        return userInfo != null ? userInfo.getOrgTags() : null;
-    }
-
-    public static String getCurrentPrimaryOrg() {
-        UserInfo userInfo = USER_CONTEXT.get();
-        return userInfo != null ? userInfo.getPrimaryOrg() : null;
-    }
-
     public static void clearUserInfo() {
         USER_CONTEXT.remove();
     }
@@ -73,44 +65,11 @@ public class SpringUtil implements ApplicationContextAware {
         return "ADMIN".equals(role);
     }
 
-    public static boolean hasOrgTag(String tagId) {
-        Set<String> orgTags = getCurrentOrgTags();
-        return orgTags != null && orgTags.contains(tagId);
-    }
-
+    @Data
+    @AllArgsConstructor
     public static class UserInfo {
         private final Long userId;
         private final String username;
         private final String role;
-        private final Set<String> orgTags;
-        private final String primaryOrg;
-
-        public UserInfo(Long userId, String username, String role, Set<String> orgTags, String primaryOrg) {
-            this.userId = userId;
-            this.username = username;
-            this.role = role;
-            this.orgTags = orgTags;
-            this.primaryOrg = primaryOrg;
-        }
-
-        public Long getUserId() {
-            return userId;
-        }
-
-        public String getUsername() {
-            return username;
-        }
-
-        public String getRole() {
-            return role;
-        }
-
-        public Set<String> getOrgTags() {
-            return orgTags;
-        }
-
-        public String getPrimaryOrg() {
-            return primaryOrg;
-        }
     }
 }

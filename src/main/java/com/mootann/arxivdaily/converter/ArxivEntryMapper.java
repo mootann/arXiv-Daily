@@ -20,9 +20,7 @@ import java.util.stream.Collectors;
 @Component
 @Mapper(componentModel = "spring")
 public interface ArxivEntryMapper {
-    
-    String ARXIV_BASE_URL = "https://arxiv.org";
-    
+
     @Mapping(source = "id", target = "arxivId", qualifiedByName = "extractArxivId")
     @Mapping(source = "id", target = "version", qualifiedByName = "extractVersion")
     @Mapping(source = "title", target = "title", qualifiedByName = "cleanText")

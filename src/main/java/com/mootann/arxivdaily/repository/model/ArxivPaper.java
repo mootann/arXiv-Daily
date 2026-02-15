@@ -1,87 +1,106 @@
 package com.mootann.arxivdaily.repository.model;
 
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * arXiv论文实体类
+ * 使用 MyBatis Plus 注解映射到 MySQL 的 arxiv_papers 表
+ */
 @Data
-@Entity
-@Table(name = "arxiv_papers",
-        indexes = {
-                @Index(name = "idx_arxiv_id", columnList = "arxiv_id", unique = true),
-                @Index(name = "idx_published_date", columnList = "published_date"),
-                @Index(name = "idx_primary_category", columnList = "primary_category"),
-                @Index(name = "idx_created_time", columnList = "created_time"),
-                @Index(name = "idx_github_url", columnList = "github_url")
-        })
 @NoArgsConstructor
 @AllArgsConstructor
+@TableName(value = "arxiv_papers", autoResultMap = true)
 public class ArxivPaper {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "arxiv_id", nullable = false, length = 50)
+    @TableField("arxiv_id")
     private String arxivId;
 
-    @Column(name = "title", nullable = false, columnDefinition = "TEXT")
+    @TableField("title")
     private String title;
 
-    @Column(name = "summary", columnDefinition = "TEXT")
+    @TableField("summary")
     private String summary;
 
-    // 使用 JSONB 类型存储 List<String>
-    @Type(JsonBinaryType.class)
-    @Column(name = "authors", columnDefinition = "jsonb")
+    /**
+     * 作者列表，使用 JSON 格式存储在 MySQL 的 JSON 类型字段中
+     */
+    @TableField(value = "authors", typeHandler = JacksonTypeHandler.class)
     private List<String> authors;
 
-    @Column(name = "published_date")
+    @TableField("published_date")
     private LocalDate publishedDate;
 
-    @Column(name = "updated_date")
+    @TableField("updated_date")
     private LocalDate updatedDate;
 
-    @Column(name = "primary_category", length = 50)
+    @TableField("primary_category")
     private String primaryCategory;
 
-    // 使用 JSONB 类型存储 List<String>
-    @Type(JsonBinaryType.class)
-    @Column(name = "categories", columnDefinition = "jsonb")
+    /**
+     * 分类列表，使用 JSON 格式存储在 MySQL 的 JSON 类型字段中
+     */
+    @TableField(value = "categories", typeHandler = JacksonTypeHandler.class)
     private List<String> categories;
 
-    @Column(name = "pdf_url", columnDefinition = "TEXT")
+    @TableField("pdf_url")
     private String pdfUrl;
 
-    @Column(name = "latex_url", columnDefinition = "TEXT")
+    @TableField("latex_url")
     private String latexUrl;
 
-    @Column(name = "arxiv_url", columnDefinition = "TEXT")
+    @TableField("arxiv_url")
     private String arxivUrl;
 
-    @Column(name = "doi", length = 255)
+    @TableField("doi")
     private String doi;
 
-    @Column(name = "version")
+    @TableField("version")
     private Integer version;
 
-    @Column(name = "github_url", length = 500)
+    /**
+     * arXiv元数据中的评论信息（注意：这不是用户评论）
+     */
+    @TableField("comment")
+    private String comment;
+
+    @TableField("journal_ref")
+    private String journalRef;
+
+    @TableField("github_url")
     private String githubUrl;
 
-    @CreationTimestamp
-    @Column(name = "created_time", nullable = false, updatable = false)
+    @TableField(value = "created_time", fill = FieldFill.INSERT)
     private LocalDateTime createdTime;
 
-    @UpdateTimestamp
-    @Column(name = "updated_time", nullable = false)
+    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedTime;
+
+    @TableField(exist = false)
+    private Long likeCount;
+
+    @TableField(exist = false)
+    private Long collectCount;
+
+    @TableField(exist = false)
+    private Long commentCount;
+
+    @TableField(exist = false)
+    private Long viewCount;
+
+    @TableField(exist = false)
+    private Boolean isLiked;
+
+    @TableField(exist = false)
+    private Boolean isCollected;
 }

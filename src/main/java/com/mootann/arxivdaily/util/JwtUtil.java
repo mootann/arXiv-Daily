@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Set;
 
 @Slf4j
 @Component
@@ -23,25 +22,38 @@ public class JwtUtil {
     @Value("${jwt.expiration:86400000}")
     private Long expiration;
 
+    @Value("${jwt.refresh-expiration:604800000}")
+    private Long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Long userId, String username, String role, Set<String> orgTags, String primaryOrg) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration);
+    public String generateToken(Long userId, String username, String role) {
+        return generateToken(userId, username, role, expiration);
+    }
 
-        return Jwts.builder()
+    public String generateRefreshToken(Long userId, String username) {
+        return generateToken(userId, username, null, refreshExpiration);
+    }
+
+    private String generateToken(Long userId, String username, String role, Long expirationTime) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationTime);
+
+        var builder = Jwts.builder()
                 .subject(username)
                 .claim(JwtConstant.CLAIM_USER_ID, userId)
                 .claim(JwtConstant.CLAIM_USERNAME, username)
-                .claim(JwtConstant.CLAIM_ROLE, role)
-                .claim(JwtConstant.CLAIM_ORG_TAGS, orgTags)
-                .claim(JwtConstant.CLAIM_PRIMARY_ORG, primaryOrg)
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(getSigningKey())
-                .compact();
+                .signWith(getSigningKey());
+        
+        if (role != null) {
+            builder.claim(JwtConstant.CLAIM_ROLE, role);
+        }
+
+        return builder.compact();
     }
 
     public Claims extractClaims(String token) {
@@ -64,19 +76,6 @@ public class JwtUtil {
         return extractClaims(token).get(JwtConstant.CLAIM_ROLE, String.class);
     }
 
-    @SuppressWarnings("unchecked")
-    public Set<String> extractOrgTags(String token) {
-        Object orgTags = extractClaims(token).get(JwtConstant.CLAIM_ORG_TAGS);
-        if (orgTags instanceof java.util.Collection) {
-            return new java.util.HashSet<>((java.util.Collection<String>) orgTags);
-        }
-        return java.util.Collections.emptySet();
-    }
-
-    public String extractPrimaryOrg(String token) {
-        return extractClaims(token).get(JwtConstant.CLAIM_PRIMARY_ORG, String.class);
-    }
-
     public Date extractExpiration(String token) {
         return extractClaims(token).getExpiration();
     }
@@ -97,15 +96,6 @@ public class JwtUtil {
         } catch (Exception e) {
             log.error("JWT验证失败: {}", e.getMessage());
             return false;
-        }
-    }
-
-    public Long getRemainingTime(String token) {
-        try {
-            Date expiration = extractExpiration(token);
-            return expiration.getTime() - System.currentTimeMillis();
-        } catch (Exception e) {
-            return 0L;
         }
     }
 }

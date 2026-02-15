@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,13 +24,12 @@ import java.util.Collections;
 
 @Slf4j
 @Component
+@AllArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtRedisCache jwtRedisCache;
+    private final JwtRedisCache jwtRedisCache;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -44,15 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (jwtRedisCache.validateCachedToken(username, jwt)) {
                     Long userId = jwtUtil.extractUserId(jwt);
                     String role = jwtUtil.extractRole(jwt);
-                    java.util.Set<String> orgTags = jwtUtil.extractOrgTags(jwt);
-                    String primaryOrg = jwtUtil.extractPrimaryOrg(jwt);
 
                     SpringUtil.setUserInfo(new SpringUtil.UserInfo(
                             userId,
                             username,
-                            role,
-                            orgTags,
-                            primaryOrg
+                            role
                     ));
 
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

@@ -15,7 +15,7 @@ public class MinIOConfig {
     /**
      * MinIO服务器地址
      */
-    private String endpoint = "http://localhost:9000";
+    private String endpoint;
     
     /**
      * MinIO访问密钥

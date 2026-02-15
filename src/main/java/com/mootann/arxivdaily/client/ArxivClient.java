@@ -1,31 +1,33 @@
 package com.mootann.arxivdaily.client;
 
-import com.mootann.arxivdaily.config.ArxivProxyConfig;
 import com.mootann.arxivdaily.converter.ArxivEntryMapper;
 import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
 import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchRequest;
 import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchResponse;
+import com.mootann.arxivdaily.util.QueryUtil;
 import com.mootann.arxivdaily.xml.ArxivEntry;
 import com.mootann.arxivdaily.xml.ArxivFeed;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import static com.mootann.arxivdaily.util.QueryUtil.*;
+import static java.time.temporal.ChronoUnit.DAYS;
 
 /**
  * arXiv API客户端
@@ -33,11 +35,12 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class ArxivClient {
     
     private static final String ARXIV_API_BASE_URL = "https://export.arxiv.org/api/query";
     private static final String ARXIV_BASE_URL = "https://arxiv.org";
-    // 请求间隔时间（毫秒），arXiv API建议至少3秒
+    // 请求间隔时间（毫秒）
     private static final long REQUEST_INTERVAL_MS = 3000;
     // 每日获取论文的最大数量限制
     private static final int DAILY_MAX_RESULTS = 1000;
@@ -47,82 +50,35 @@ public class ArxivClient {
     private static long lastRequestTime = 0;
 
     private final WebClient webClient;
-    private final ArxivProxyConfig proxyConfig;
-    
-    @Autowired
-    private ArxivEntryMapper arxivEntryMapper;
-    
-    public ArxivClient(WebClient webClient, ArxivProxyConfig proxyConfig) {
-        this.webClient = webClient;
-        this.proxyConfig = proxyConfig;
-        log.info("arXiv代理配置: enabled={}, host={}, port={}", 
-            proxyConfig.getEnabled(), proxyConfig.getHost(), proxyConfig.getPort());
-    }
-    
-    /**
-     * 根据arXiv ID获取单篇论文信息
-     * @param arxivId arXiv ID，例如：2301.12345
-     * @return 论文信息
-     */
-    public ArxivPaperDTO getPaperById(String arxivId) throws UnsupportedEncodingException {
-        String query = "id:" + arxivId;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, 1, "0", null, null, null, null);
-        ArxivSearchResponse response = searchPapers(request);
-        
-        if (response != null && !response.getPapers().isEmpty()) {
-            return response.getPapers().get(0);
-        }
-        return null;
-    }
-    
-    /**
-     * 批量获取论文信息
-     * @param arxivIds arXiv ID列表
-     * @return 论文信息列表
-     */
-    public List<ArxivPaperDTO> getPapersByIds(List<String> arxivIds) throws UnsupportedEncodingException {
-        String query = String.join(" OR ", arxivIds.stream()
-                .map(id -> "id:" + id)
-                .toList());
-        ArxivSearchRequest request = new ArxivSearchRequest(query, arxivIds.size(), "0", null, null, null, null);
-        ArxivSearchResponse response = searchPapers(request);
-        
-        return response != null ? response.getPapers() : new ArrayList<>();
-    }
-    
+
+    private final ArxivEntryMapper arxivEntryMapper;
+
     /**
      * 搜索论文
      * @param request 搜索请求参数
      * @return 搜索响应结果
      */
-    public ArxivSearchResponse searchPapers(ArxivSearchRequest request) throws UnsupportedEncodingException {
-        log.info("===== 开始搜索arXiv论文 =====");
-        log.info("搜索请求参数: query={}, maxResults={}, start={}, sortBy={}, sortOrder={}", 
-            request.getQuery(), request.getMaxResults(), request.getStart(), 
-            request.getSortBy(), request.getSortOrder());
-        
-        // 过滤：只查询cs和eess主类下的子类
-        String filteredQuery = filterToCsAndEess(request.getQuery());
-        log.info("过滤后的查询语句: {}", filteredQuery);
-        
+    public ArxivSearchResponse searchPapers(ArxivSearchRequest request) {
+        // 只查询cs主类下的子类
+        String query = filterToCs(request.getQuery());
+
+        log.info("搜索请求参数: query={}, maxResults={}, start={}, sortBy={}, sortOrder={}",
+                query, request.getMaxResults(), request.getStart(),
+                request.getSortBy(), request.getSortOrder());
+
         // 执行请求前确保遵守频率限制
         ensureRequestInterval();
-        
-        // 构建API请求URL
-        StringBuilder urlBuilder = new StringBuilder(ARXIV_API_BASE_URL);
-        urlBuilder.append("?search_query=").append(URLEncoder.encode(filteredQuery, StandardCharsets.UTF_8));
-        
-        if (request.getMaxResults() != null && request.getMaxResults() > 0) {
-            urlBuilder.append("&max_results=").append(request.getMaxResults());
-        } else {
-            urlBuilder.append("&max_results=10");
-        }
-        
-        if (request.getStart() != null) {
-            urlBuilder.append("&start=").append(request.getStart());
-        }
-        
-        String requestUrl = urlBuilder.toString();
+
+        // 使用 UriComponentsBuilder 自动处理 URL 编码
+        URI requestUrl = UriComponentsBuilder.fromHttpUrl(ARXIV_API_BASE_URL)
+                .queryParam("search_query", UriUtils.encodeQueryParam(query, "UTF-8"))
+                .queryParam("max_results", Math.min(request.getMaxResults(), 2000)) // arXiv 最大 2000
+                .queryParam("start", request.getStart())
+                .queryParam("sortBy", "submittedDate")
+                .queryParam("sortOrder", "descending")
+                .build(true)
+                .toUri();
+
         log.info("构建的请求URL: {}", requestUrl);
         
         // 使用WebClient执行请求
@@ -134,7 +90,7 @@ public class ArxivClient {
                 .bodyToMono(String.class)
                 .block();
             
-            if (responseString != null && responseString.length() > 0) {
+            if (responseString != null && !responseString.isEmpty()) {
                 log.info("响应内容长度: {} 字符", responseString.length());
                 return parseResponse(responseString);
             } else {
@@ -159,7 +115,7 @@ public class ArxivClient {
             request.getSortBy(), request.getSortOrder());
 
         // 过滤：只查询cs和eess主类下的子类
-        String filteredQuery = filterToCsAndEess(request.getQuery());
+        String filteredQuery = filterToCs(request.getQuery());
         log.info("过滤后的查询语句: {}", filteredQuery);
 
         Integer userMaxResults = request.getMaxResults();
@@ -307,29 +263,6 @@ public class ArxivClient {
     }
 
     /**
-     * 根据arXiv分类搜索论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param maxResults 最大结果数
-     * @param page 页码（从1开始）
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategory(String category, Integer maxResults, Integer page) throws UnsupportedEncodingException {
-        String query = "cat:" + category;
-        int startIndex = (page - 1) * maxResults;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, String.valueOf(startIndex), null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据arXiv分类搜索论文（使用默认结果数）
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategory(String category) throws UnsupportedEncodingException {
-        return searchByCategory(category, 10, 1);
-    }
-
-    /**
      * 根据关键词搜索论文
      * @param keyword 关键词
      * @param maxResults 最大结果数
@@ -343,222 +276,33 @@ public class ArxivClient {
         return searchPapers(request);
     }
 
-    /**
-     * 根据arXiv分类和日期范围搜索论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
-     * @param page 页码（从1开始）
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
-        // 计算日期范围的天数
-        Integer days = calculateDaysBetweenDates(startDate, endDate);
-        // 计算允许的最大结果数
-        Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
-        log.info("按分类 {} 和日期范围 {} 至 {} 搜索论文，天数: {}, 计算后的最大结果数: {}", category, startDate, endDate, days, calculatedMaxResults);
-
-        // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedStartDate = formatDateForArxiv(startDate);
-        String formattedEndDate = formatDateForArxiv(endDate);
-        String query = String.format("cat:%s AND submittedDate:[%s TO %s]", category, formattedStartDate, formattedEndDate);
-        int startIndex = (page - 1) * calculatedMaxResults;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, calculatedMaxResults, String.valueOf(startIndex), null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据arXiv分类和日期范围搜索论文（使用默认结果数）
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategoryAndDateRange(String category, String startDate, String endDate) throws UnsupportedEncodingException {
-        return searchByCategoryAndDateRange(category, startDate, endDate, 10, 1);
-    }
-
-    /**
-     * 根据arXiv分类和指定日期之后搜索论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategoryFromDate(String category, String startDate, Integer maxResults) throws UnsupportedEncodingException {
-        // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedStartDate = formatDateForArxiv(startDate);
-        String query = String.format("cat:%s AND submittedDate:[%s TO *]", category, formattedStartDate);
-        ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据arXiv分类和指定日期之前搜索论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategoryToDate(String category, String endDate, Integer maxResults) throws UnsupportedEncodingException {
-        // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedEndDate = formatDateForArxiv(endDate);
-        String query = String.format("cat:%s AND submittedDate:[* TO %s]", category, formattedEndDate);
-        ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据发布日期范围搜索论文
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
-     * @param page 页码（从1开始）
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate, Integer maxResults, Integer page) throws UnsupportedEncodingException {
-        // 计算日期范围的天数
-        Integer days = calculateDaysBetweenDates(startDate, endDate);
-        // 计算允许的最大结果数
-        Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
-        log.info("按日期范围 {} 至 {} 搜索论文，天数: {}, 计算后的最大结果数: {}", startDate, endDate, days, calculatedMaxResults);
-
-        // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedStartDate = formatDateForArxiv(startDate);
-        String formattedEndDate = formatDateForArxiv(endDate);
-        String query = String.format("submittedDate:[%s TO %s]", formattedStartDate, formattedEndDate);
-        int startIndex = (page - 1) * calculatedMaxResults;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, calculatedMaxResults, String.valueOf(startIndex), null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据发布日期范围搜索论文（使用默认结果数）
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByDateRange(String startDate, String endDate) throws UnsupportedEncodingException {
-        return searchByDateRange(startDate, endDate, 10, 1);
-    }
-
-    /**
-     * 根据指定日期搜索论文（精确日期）
-     * @param date 日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByDate(String date, Integer maxResults) throws UnsupportedEncodingException {
-        // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedDate = formatDateForArxiv(date);
-        String query = "submittedDate:" + formattedDate;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 获取最近N天的论文
-     * @param days 天数
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchRecentPapers(int days, Integer maxResults) throws UnsupportedEncodingException {
-        // 计算允许的最大结果数
-        Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
-        log.info("获取最近 {} 天的论文，计算后的最大结果数: {}", days, calculatedMaxResults);
-
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(days);
-
-        // 使用YYYYMMDD格式
-        String startDateStr = startDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-        String endDateStr = endDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-
-        String query = String.format("submittedDate:[%s TO %s]", startDateStr, endDateStr);
-        ArxivSearchRequest request = new ArxivSearchRequest(query, calculatedMaxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 获取最近N天指定分类的论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param days 天数
-     * @param maxResults 最大结果数
-     * @param page 页码（从1开始）
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchRecentPapersByCategory(String category, int days, Integer maxResults, Integer page) throws UnsupportedEncodingException {
-        // 计算允许的最大结果数
-        Integer calculatedMaxResults = calculateMaxResults(days, maxResults);
-        log.info("获取最近 {} 天 {} 分类的论文，计算后的最大结果数: {}", days, category, calculatedMaxResults);
-
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(days);
-
-        // 使用YYYYMMDD格式
-        String startDateStr = startDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-        String endDateStr = endDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-
-        String query = String.format("cat:%s AND submittedDate:[%s TO %s]", category, startDateStr, endDateStr);
-        int startIndex = (page - 1) * calculatedMaxResults;
-        ArxivSearchRequest request = new ArxivSearchRequest(query, calculatedMaxResults, String.valueOf(startIndex), null, null, null, null);
-        return searchPapers(request);
-    }
-
-    /**
-     * 根据多个分类搜索论文
-     * @param categories 分类代码列表，例如：["cs.AI", "cs.LG", "cs.CV"]
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByMultipleCategories(List<String> categories, Integer maxResults) throws UnsupportedEncodingException {
-        String categoryQuery = String.join(" OR ", categories.stream()
-                .map(cat -> "cat:" + cat)
-                .toList());
-        ArxivSearchRequest request = new ArxivSearchRequest(categoryQuery, maxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
 
     /**
      * 根据多个分类和日期范围搜索论文
      * @param categories 分类代码列表，例如：["cs.AI", "cs.LG", "cs.CV"]
      * @param startDate 开始日期，格式：YYYY-MM-DD
      * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @param maxResults 最大结果数
      * @return 搜索结果
      */
-    public ArxivSearchResponse searchByMultipleCategoriesAndDateRange(List<String> categories, String startDate, String endDate, Integer maxResults) throws UnsupportedEncodingException {
-        String categoryQuery = String.join(" OR ", categories.stream()
-                .map(cat -> "cat:" + cat)
-                .toList());
+    public ArxivSearchResponse searchQuery(List<String> categories, String startDate, String endDate) {
+        // 计算允许的最大结果数
+        Integer maxResults;
+        if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+            Integer days = QueryUtil.calculateDaysBetweenDates(startDate, endDate);
+            maxResults = days * DAILY_MAX_RESULTS;
+        } else {
+            // 如果没有日期范围，设置一个默认值
+            maxResults = DAILY_MAX_RESULTS;
+        }
+        
         // 转换日期格式为arXiv API要求的格式（YYYYMMDD）
-        String formattedStartDate = formatDateForArxiv(startDate);
-        String formattedEndDate = formatDateForArxiv(endDate);
-        String dateQuery = String.format("submittedDate:[%s TO %s]", formattedStartDate, formattedEndDate);
-        String query = String.format("(%s) AND %s", categoryQuery, dateQuery);
+        String query = QueryUtil.getQuery(categories, startDate, endDate);
+
         ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
         return searchPapers(request);
     }
 
-    /**
-     * 根据分类和关键词搜索论文
-     * @param category 分类代码，例如：cs.AI, cs.LG, cs.CV
-     * @param keyword 关键词
-     * @param maxResults 最大结果数
-     * @return 搜索结果
-     */
-    public ArxivSearchResponse searchByCategoryAndKeyword(String category, String keyword, Integer maxResults) throws UnsupportedEncodingException {
-        String query = String.format("cat:%s AND all:%s", category, keyword);
-        ArxivSearchRequest request = new ArxivSearchRequest(query, maxResults, "0", null, null, null, null);
-        return searchPapers(request);
-    }
-    
-    /**
-     * 解析arXiv API响应（使用JAXB）
-     * @param responseString 响应字符串
-     * @return 解析后的搜索结果
-     */
+    // 解析arXiv API响应
     private ArxivSearchResponse parseResponse(String responseString) {
         try {
             log.info("开始使用JAXB解析arXiv API响应...");
@@ -621,90 +365,7 @@ public class ArxivClient {
             paper.setArxivUrl(ARXIV_BASE_URL + "/abs/" + paper.getArxivId());
         }
     }
-    
-    /**
-     * 将日期格式化为arXiv API要求的格式
-     * @param date 日期字符串，格式：YYYY-MM-DD
-     * @return 格式化后的日期字符串，格式：YYYYMMDD
-     */
-    private String formatDateForArxiv(String date) {
-        if (date == null || date.isEmpty()) {
-            return date;
-        }
-        try {
-            // 如果日期已经是YYYYMMDD格式，直接返回
-            if (date.matches("\\d{8}")) {
-                return date;
-            }
-            // 将YYYY-MM-DD格式转换为YYYYMMDD格式
-            LocalDate localDate = LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE);
-            return localDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-        } catch (Exception e) {
-            log.error("日期格式化失败: {}", date, e);
-            // 如果转换失败，尝试移除所有破折号
-            return date.replace("-", "");
-        }
-    }
 
-    /**
-     * 过滤查询语句，只查询cs和eess主类下的子类
-     * @param originalQuery 原始查询语句
-     * @return 过滤后的查询语句
-     */
-    private String filterToCsAndEess(String originalQuery) {
-        if (originalQuery == null || originalQuery.trim().isEmpty()) {
-            return "(cat:cs.* OR cat:eess.*)";
-        }
-        
-        // 如果查询语句已经包含分类过滤，检查是否只包含cs或eess
-        if (originalQuery.contains("cat:")) {
-            // 检查查询中是否只包含cs或eess的分类
-            String lowerQuery = originalQuery.toLowerCase();
-            boolean hasValidCategory = false;
-            
-            // 提取所有分类
-            Pattern pattern = Pattern.compile("cat:([a-zA-Z]+\\.[a-zA-Z]+)");
-            Matcher matcher = pattern.matcher(originalQuery);
-            
-            Set<String> validCategories = new java.util.HashSet<>();
-            Set<String> allCategories = new java.util.HashSet<>();
-            
-            while (matcher.find()) {
-                String category = matcher.group(1);
-                allCategories.add(category);
-                if (category.startsWith("cs.") || category.startsWith("eess.")) {
-                    validCategories.add(category);
-                }
-            }
-            
-            // 如果查询中只包含cs或eess的分类，则保持原样
-            if (allCategories.equals(validCategories) && !validCategories.isEmpty()) {
-                return originalQuery;
-            }
-            
-            // 如果查询中包含其他分类，需要过滤
-            if (!validCategories.isEmpty()) {
-                // 构建只包含有效分类的查询
-                String filteredQuery = originalQuery;
-                for (String cat : allCategories) {
-                    if (!validCategories.contains(cat)) {
-                        filteredQuery = filteredQuery.replace("cat:" + cat, "");
-                    }
-                }
-                // 清理多余的AND和OR
-                filteredQuery = filteredQuery.replaceAll("\\s+(AND|OR)\\s+(AND|OR)\\s+", " $1 ");
-                filteredQuery = filteredQuery.replaceAll("^\\s*(AND|OR)\\s+", "");
-                filteredQuery = filteredQuery.replaceAll("\\s*(AND|OR)\\s*$", "");
-                return filteredQuery.trim();
-            }
-            
-            // 如果查询中没有有效的分类，添加cs和eess的过滤
-            return "(" + originalQuery + ") AND (cat:cs.* OR cat:eess.*)";
-        }
-        
-        // 如果查询中没有分类过滤，添加cs和eess的过滤
-        return "(" + originalQuery + ") AND (cat:cs.* OR cat:eess.*)";
-    }
 
     /**
      * 确保请求间隔时间
@@ -726,44 +387,5 @@ public class ArxivClient {
         }
         
         lastRequestTime = System.currentTimeMillis();
-    }
-
-    /**
-     * 计算允许的最大结果数
-     * 单日获取上限为1000，日期范围和最近N天上限为天数*1000
-     * @param days 天数（null表示单日）
-     * @param userMaxResults 用户请求的最大结果数（null表示使用默认值）
-     * @return 允许的最大结果数
-     */
-    private Integer calculateMaxResults(Integer days, Integer userMaxResults) {
-        if (days == null || days <= 0) {
-            // 单日获取，最大1000
-            int maxAllowed = DAILY_MAX_RESULTS;
-            // 如果用户没有指定maxResults，则使用最大允许值
-            return userMaxResults != null ? Math.min(userMaxResults, maxAllowed) : maxAllowed;
-        } else {
-            // 日期范围或最近N天，最大为天数*1000
-            int maxAllowed = days * DAILY_MAX_RESULTS;
-            // 如果用户没有指定maxResults，则使用最大允许值
-            return userMaxResults != null ? Math.min(userMaxResults, maxAllowed) : maxAllowed;
-        }
-    }
-
-    /**
-     * 计算两个日期之间的天数
-     * @param startDate 开始日期，格式：YYYY-MM-DD
-     * @param endDate 结束日期，格式：YYYY-MM-DD
-     * @return 天数
-     */
-    private Integer calculateDaysBetweenDates(String startDate, String endDate) {
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            LocalDate start = LocalDate.parse(startDate, formatter);
-            LocalDate end = LocalDate.parse(endDate, formatter);
-            return (int) java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
-        } catch (Exception e) {
-            log.warn("日期解析失败: startDate={}, endDate={}, 将返回默认值1", startDate, endDate, e);
-            return 1;
-        }
     }
 }

@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { ApiResponse, ArxivPaperDTO, ArxivSearchRequest, ArxivSearchResponse } from '@/types';
+import type { ApiResponse, ArxivPaperDTO, ArxivPaperQueryRequest, ArxivSearchRequest, ArxivSearchResponse } from '@/types';
 
 export const arxivApi = {
   getPaperById(arxivId: string) {
@@ -94,10 +94,9 @@ export const arxivApi = {
 
   // ==================== 数据库查询API ====================
 
-  getPapersFromDatabase(page: number = 1, size: number = 10, hasGithub?: boolean) {
-    return request.get<ApiResponse<any>>('/arxiv/database/papers', {
-      params: { page, size, hasGithub }
-    });
+  // 获取论文列表（数据库）- POST请求
+  getPapersFromDatabase(params: ArxivPaperQueryRequest = {}) {
+    return request.post<ApiResponse<any>>('/arxiv/database/papers', params);
   },
 
   searchPapersFromDatabase(keyword: string, page: number = 1, size: number = 10, hasGithub?: boolean) {

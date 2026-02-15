@@ -1,81 +1,42 @@
 package com.mootann.arxivdaily.repository.model;
 
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
-@Entity
-@Table(name = "users")
+import java.time.LocalDateTime;
+
+/**
+ * 用户实体类
+ * 使用 MyBatis Plus 注解映射到 MySQL 的 users 表
+ */
 @Data
+@TableName("users")
 public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @TableField("username")
     private String username;
 
-    @Column(unique = true, nullable = false)
+    @TableField("email")
     private String email;
 
-    @Column(nullable = false)
+    @TableField("password")
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @TableField("role")
     private UserRole role = UserRole.USER;
 
-    @Column(length = 255)
-    private String orgTags;
-
-    @Column(length = 50)
-    private String primaryOrg;
-
-    @CreationTimestamp
-    @Column(name = "created_time", updatable = false)
+    @TableField(value = "created_time", fill = FieldFill.INSERT)
     private LocalDateTime createdTime;
 
-    @UpdateTimestamp
-    @Column(name = "updated_time")
+    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedTime;
 
-    public Set<String> getOrgTagSet() {
-        if (orgTags == null || orgTags.isEmpty()) {
-            return new HashSet<>();
-        }
-        return Set.of(orgTags.split(","));
-    }
-
-    public void setOrgTagSet(Set<String> tags) {
-        if (tags == null || tags.isEmpty()) {
-            this.orgTags = null;
-        } else {
-            this.orgTags = String.join(",", tags);
-        }
-    }
-
-    public void addOrgTag(String tagId) {
-        Set<String> tags = getOrgTagSet();
-        tags.add(tagId);
-        setOrgTagSet(tags);
-    }
-
-    public void removeOrgTag(String tagId) {
-        Set<String> tags = getOrgTagSet();
-        tags.remove(tagId);
-        setOrgTagSet(tags);
-    }
-
-    public boolean hasOrgTag(String tagId) {
-        return getOrgTagSet().contains(tagId);
-    }
-
+    /**
+     * 用户角色枚举
+     */
     public enum UserRole {
         ADMIN,
         USER

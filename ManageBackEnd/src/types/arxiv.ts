@@ -57,3 +57,14 @@ export interface CategoryCount {
   category: string;
   count: number;
 }
+
+// 论文查询请求参数
+export interface ArxivPaperQueryRequest {
+  category?: string[];
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+  hasGithub?: boolean;
+}

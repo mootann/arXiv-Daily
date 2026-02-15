@@ -1,5 +1,6 @@
 package com.mootann.arxivdaily.client;
 
+import com.mootann.arxivdaily.config.MinIOConfig;
 import io.minio.*;
 import io.minio.errors.*;
 import io.minio.http.Method;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 public class MinIOClient {
 
     @Autowired
-    private com.mootann.arxivdaily.config.MinIOConfig minIOConfig;
+    private MinIOConfig minIOConfig;
 
     private MinioClient minioClient;
 

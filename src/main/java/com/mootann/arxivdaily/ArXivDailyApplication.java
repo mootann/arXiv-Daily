@@ -36,6 +36,7 @@ public class ArXivDailyApplication {
     @Bean
     public WebClient webClient(ArxivProxyConfig arxivProxyConfig, GitHubConfig gitHubConfig) {
         HttpClient httpClient = HttpClient.create()
+            .followRedirect(true)
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
             .responseTimeout(Duration.ofSeconds(60))
             .doOnConnected(conn -> 

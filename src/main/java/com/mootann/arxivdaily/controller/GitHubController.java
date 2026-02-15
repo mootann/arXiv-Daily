@@ -3,6 +3,7 @@ package com.mootann.arxivdaily.controller;
 import com.mootann.arxivdaily.repository.dto.ApiResponse;
 import com.mootann.arxivdaily.repository.dto.GitHubRepositoryInfo;
 import com.mootann.arxivdaily.service.GitHubService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
+@AllArgsConstructor
 @RequestMapping("/api/v1/github")
 public class GitHubController {
     
-    @Autowired
-    private GitHubService gitHubService;
+    private final GitHubService gitHubService;
     
     /**
      * 获取仓库完整信息

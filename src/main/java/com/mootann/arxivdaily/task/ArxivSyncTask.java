@@ -5,6 +5,7 @@ import com.mootann.arxivdaily.client.RedisClient;
 import com.mootann.arxivdaily.repository.dto.arxiv.ArxivPaperDTO;
 import com.mootann.arxivdaily.repository.dto.arxiv.ArxivSearchResponse;
 import com.mootann.arxivdaily.service.ArxivService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,26 +22,21 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class ArxivSyncTask {
 
-    @Autowired
-    private RedisClient redisClient;
+    private final RedisClient redisClient;
 
-    @Autowired
-    private ArxivClient arxivClient;
+    private final ArxivClient arxivClient;
 
-    @Autowired
-    private ArxivService arxivService;
+    private final ArxivService arxivService;
 
     // arXiv API单次请求最大返回结果数限制
     private static final int API_MAX_RESULTS_PER_REQUEST = 100;
     // 请求间隔时间（毫秒），arXiv API建议至少3秒
     private static final long REQUEST_INTERVAL_MS = 3000;
 
-    /**
-     * 每日凌晨1点执行定时任务
-     * cron表达式：0 0 1 * * ? 表示每天凌晨1点0分0秒执行
-     */
+    // 每日凌晨1点执行
     @Scheduled(cron = "0 0 1 * * ?")
     public void syncDailyArxivPapers() {
         log.info("========== 开始执行每日arXiv论文同步任务 ==========");
@@ -98,12 +94,7 @@ public class ArxivSyncTask {
                     batchNumber, currentStart, API_MAX_RESULTS_PER_REQUEST);
 
                 // 调用ArxivClient获取指定日期的论文
-                ArxivSearchResponse response = arxivClient.searchByDateRange(
-                    date, 
-                    date, 
-                    API_MAX_RESULTS_PER_REQUEST, 
-                    (currentStart / API_MAX_RESULTS_PER_REQUEST) + 1
-                );
+                ArxivSearchResponse response = arxivClient.searchQuery(null, date, date);
 
                 if (response == null || response.getPapers() == null || response.getPapers().isEmpty()) {
                     log.info("第 {} 批请求返回空结果，停止获取", batchNumber);
